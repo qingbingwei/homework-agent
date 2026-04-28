@@ -1,0 +1,7 @@
+id,task,task_type,status,depends_on,task_dir,acceptance_criteria,validation_command,completed_at,retry_count,notes
+1,Initialize repository and epic artifacts,single-full,IN_PROGRESS,,tasks/20260429-foundation,Git initialized with first commit,test -d .git,,0,Start with local and GitHub repository setup
+2,Build Python agent service,single-full,TODO,1,tasks/20260429-agent,Agent can parse files and generate report JSON,pytest agent/tests -q,,0,
+3,Build Go backend API,single-full,TODO,1;2,tasks/20260429-backend,Backend proxies upload flow to agent,go test ./...,,0,
+4,Build frontend upload app,single-full,TODO,1;3,tasks/20260429-frontend,Frontend uploads files and renders result,test -f frontend/index.html,,0,
+5,Run integration validation and publish commits,single-full,TODO,2;3;4,tasks/20260429-integration,All validations and pushes succeed,make test,,0,
+
