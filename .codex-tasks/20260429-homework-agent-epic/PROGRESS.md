@@ -12,12 +12,12 @@
 ## Context Recovery Block
 
 - **Current milestone**: #10 — Run third-round validation and publish iteration commit
-- **Current status**: IN_PROGRESS
-- **Last completed**: #9 — Standardize backend error contracts and frontend error UX
+- **Current status**: DONE
+- **Last completed**: #10 — Run third-round validation and publish iteration commit
 - **Current artifact**: `.codex-tasks/20260429-homework-agent-epic/SUBTASKS.csv`
-- **Key context**: 第三轮迭代已完成结构化错误响应与前端错误展示增强，当前进入验证与提交阶段。
+- **Key context**: 第三轮迭代已完成验证并推送，Epic 当前处于持续迭代后的稳定状态。
 - **Known issues**: 真实 LLM 生成仍受上游 `insufficient_quota` 限制，但错误已完整暴露，不影响本地架构迭代。
-- **Next action**: 记录验证结果并推送第三轮提交。
+- **Next action**: 在新的迭代中继续围绕真实生成链路与可观测性推进。
 
 ## Milestone 1: Initialize repository and epic artifacts
 
@@ -120,3 +120,14 @@
   - `backend/internal/transporthttp/handler_test.go` — 增加错误响应测试
   - `frontend/src/services/api.js` — 解析 JSON 错误并抛出带元数据的异常
   - `frontend/src/ui/UploadPanel.jsx` — 渲染更友好的错误提示
+
+## Milestone 10: Run third-round validation and publish iteration commit
+
+- **Status**: DONE
+- **Started**: 03:06
+- **Completed**: 03:08
+- **What was done**:
+  - 完成第三轮 `make test` 全量验证。
+  - 启动后端并确认上传错误返回结构化 JSON。
+  - 提交并推送第三轮错误体验优化代码。
+- **Validation**: `make test` → exit 0；`curl -i -X POST http://127.0.0.1:8080/api/report/generate` → 502 JSON；`git push origin main` → success
