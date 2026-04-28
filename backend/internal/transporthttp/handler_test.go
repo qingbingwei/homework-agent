@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 )
 
 type fakeAgentService struct{}
+type failingAgentService struct{}
 
 func (fakeAgentService) GenerateReport(_ context.Context, assignment agent.FilePayload, template agent.FilePayload) (report.Result, error) {
 	return report.Result{
@@ -27,6 +29,14 @@ func (fakeAgentService) GenerateReport(_ context.Context, assignment agent.FileP
 }
 
 func (fakeAgentService) Health(_ context.Context) (agent.HealthStatus, error) {
+	return agent.HealthStatus{Status: "ok", Model: "gpt-5.5", AgentKeyConfigured: true}, nil
+}
+
+func (failingAgentService) GenerateReport(_ context.Context, _ agent.FilePayload, _ agent.FilePayload) (report.Result, error) {
+	return report.Result{}, fmt.Errorf("LLM request failed (403): 当前可用额度不足")
+}
+
+func (failingAgentService) Health(_ context.Context) (agent.HealthStatus, error) {
 	return agent.HealthStatus{Status: "ok", Model: "gpt-5.5", AgentKeyConfigured: true}, nil
 }
 
@@ -102,6 +112,37 @@ func TestGenerateReportEndpoint(t *testing.T) {
 	}
 	if payload.Model != "gpt-5.5" {
 		t.Fatalf("unexpected model: %#v", payload)
+	}
+}
+
+func TestGenerateReportEndpointErrorResponse(t *testing.T) {
+	t.Parallel()
+
+	handler := NewHandler(failingAgentService{}, config.Load())
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	writeTestFile(t, writer, "assignment", "homework.md", "# work")
+	writeTestFile(t, writer, "template", "template.md", "# template")
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close writer: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/report/generate", body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadGateway {
+		t.Fatalf("unexpected status code: %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("json decode error: %v", err)
+	}
+	if payload["code"] != "upstream_quota_exceeded" {
+		t.Fatalf("unexpected error payload: %#v", payload)
 	}
 }
 

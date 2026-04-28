@@ -2,6 +2,19 @@ import { useState } from "react";
 
 import { DropzoneField } from "./DropzoneField";
 
+function getErrorTitle(error) {
+  if (!error) {
+    return "";
+  }
+  if (error.code === "upstream_quota_exceeded") {
+    return "上游模型额度不足";
+  }
+  if (error.source === "agent") {
+    return "Agent 处理失败";
+  }
+  return "请求失败";
+}
+
 export function UploadPanel({ helperText, error, submitting, onSubmit }) {
   const [assignment, setAssignment] = useState(null);
   const [template, setTemplate] = useState(null);
@@ -47,7 +60,12 @@ export function UploadPanel({ helperText, error, submitting, onSubmit }) {
       </form>
 
       <p className="helper-text">{helperText}</p>
-      {error ? <p className="error-banner">{error}</p> : null}
+      {error ? (
+        <div className="error-banner" role="alert">
+          <strong>{getErrorTitle(error)}</strong>
+          <span>{error.message}</span>
+        </div>
+      ) : null}
     </section>
   );
 }

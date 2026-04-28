@@ -11,7 +11,7 @@ import { UploadPanel } from "./ui/UploadPanel";
 export default function App() {
   const { health, capabilities } = useSystemInfo();
   const [report, setReport] = useState(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   const helperText = useMemo(
@@ -21,12 +21,12 @@ export default function App() {
 
   const onSubmit = async (files) => {
     setSubmitting(true);
-    setError("");
+    setError(null);
     try {
       const payload = await generateReport(files);
       setReport(payload);
     } catch (submitError) {
-      setError(submitError.message);
+      setError({ message: submitError.message, code: submitError.code, source: submitError.source });
     } finally {
       setSubmitting(false);
     }

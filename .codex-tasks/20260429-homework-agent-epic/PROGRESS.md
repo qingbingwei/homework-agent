@@ -11,13 +11,13 @@
 
 ## Context Recovery Block
 
-- **Current milestone**: #8 — Run second-round validation and publish iteration commit
+- **Current milestone**: #10 — Run third-round validation and publish iteration commit
 - **Current status**: IN_PROGRESS
-- **Last completed**: #7 — Improve React UX with drag-drop and capability awareness
+- **Last completed**: #9 — Standardize backend error contracts and frontend error UX
 - **Current artifact**: `.codex-tasks/20260429-homework-agent-epic/SUBTASKS.csv`
-- **Key context**: 第二轮迭代已完成后端能力接口、处理器注入式架构、端到端接口测试，以及 React 拖拽上传与能力展示。
+- **Key context**: 第三轮迭代已完成结构化错误响应与前端错误展示增强，当前进入验证与提交阶段。
 - **Known issues**: 真实 LLM 生成仍受上游 `insufficient_quota` 限制，但错误已完整暴露，不影响本地架构迭代。
-- **Next action**: 记录本轮验证结果并提交到 GitHub。
+- **Next action**: 记录验证结果并推送第三轮提交。
 
 ## Milestone 1: Initialize repository and epic artifacts
 
@@ -92,3 +92,31 @@
   - `frontend/src/ui/CapabilitiesPanel.jsx` — 新增系统能力展示组件
   - `frontend/src/ui/UploadPanel.jsx` — 接入拖拽交互
   - `frontend/src/App.jsx` — 接入系统信息与能力面板
+
+## Milestone 8: Run second-round validation and publish iteration commit
+
+- **Status**: DONE
+- **Started**: 03:02
+- **Completed**: 03:05
+- **What was done**:
+  - 执行第二轮 `make test` 全量验证。
+  - 启动后端并确认 `/api/capabilities` 与 `/api/health` 运行正常。
+  - 提交并推送第二轮体验与架构优化代码。
+- **Validation**: `make test` → exit 0；`curl http://127.0.0.1:8080/api/capabilities` → exit 0；`git push origin main` → success
+- **Next step**: Milestone 9 — Standardize backend error contracts and frontend error UX
+
+## Milestone 9: Standardize backend error contracts and frontend error UX
+
+- **Status**: DONE
+- **Started**: 03:05
+- **Completed**: 03:06
+- **What was done**:
+  - 将上传失败响应统一为 JSON 结构，包含 `code`、`message`、`source`。
+  - 为上游额度不足场景增加错误分类，保留真实错误详情。
+  - 更新 React API 封装与错误告警面板，前端可区分上游额度与通用处理失败。
+- **Validation**: `make test` → exit 0；`curl -i -X POST http://127.0.0.1:8080/api/report/generate` → 502 JSON with `upstream_quota_exceeded`
+- **Files changed**:
+  - `backend/internal/transporthttp/handler.go` — 引入结构化错误响应
+  - `backend/internal/transporthttp/handler_test.go` — 增加错误响应测试
+  - `frontend/src/services/api.js` — 解析 JSON 错误并抛出带元数据的异常
+  - `frontend/src/ui/UploadPanel.jsx` — 渲染更友好的错误提示

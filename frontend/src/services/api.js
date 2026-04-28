@@ -1,9 +1,23 @@
+class ApiError extends Error {
+  constructor(message, options = {}) {
+    super(message);
+    this.name = "ApiError";
+    this.code = options.code || "unknown_error";
+    this.source = options.source || "unknown";
+  }
+}
+
 const ensureOk = async (response) => {
   if (response.ok) {
     return response;
   }
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const payload = await response.json();
+    throw new ApiError(payload.message || "请求失败", payload);
+  }
   const message = await response.text();
-  throw new Error(message || "请求失败");
+  throw new ApiError(message || "请求失败");
 };
 
 export async function fetchHealth() {

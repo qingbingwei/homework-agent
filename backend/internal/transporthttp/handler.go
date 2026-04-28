@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/qingbingwei/homework-agent/backend/internal/agent"
@@ -43,6 +44,12 @@ type capabilitiesResponse struct {
 	TemplateModes    []string `json:"template_modes"`
 	DocxPlaceholders []string `json:"docx_placeholders"`
 	MaxUploadBytes   int64    `json:"max_upload_bytes"`
+}
+
+type errorResponse struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Source  string `json:"source"`
 }
 
 func NewHandler(agentClient agentService, cfg config.Config) http.Handler {
@@ -97,24 +104,24 @@ func (h *Handler) handleHealth(w http.ResponseWriter) {
 
 func (h *Handler) handleGenerateReport(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(h.config.MaxUploadBytes); err != nil {
-		http.Error(w, fmt.Sprintf("invalid multipart form: %v", err), http.StatusBadRequest)
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_multipart_form", "backend", fmt.Sprintf("invalid multipart form: %v", err))
 		return
 	}
 
 	assignment, err := readUploadedFile(r, "assignment")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_assignment", "backend", err.Error())
 		return
 	}
 	template, err := readUploadedFile(r, "template")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_template", "backend", err.Error())
 		return
 	}
 
 	result, err := h.agentClient.GenerateReport(r.Context(), assignment, template)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		writeErrorJSON(w, http.StatusBadGateway, classifyUpstreamError(err.Error()), "agent", err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
@@ -179,4 +186,15 @@ func writeJSON(w http.ResponseWriter, statusCode int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func writeErrorJSON(w http.ResponseWriter, statusCode int, code string, source string, message string) {
+	writeJSON(w, statusCode, errorResponse{Code: code, Message: message, Source: source})
+}
+
+func classifyUpstreamError(message string) string {
+	if strings.Contains(message, "insufficient_quota") || strings.Contains(message, "额度不足") {
+		return "upstream_quota_exceeded"
+	}
+	return "upstream_generation_failed"
 }
