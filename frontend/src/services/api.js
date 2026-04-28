@@ -12,6 +12,12 @@ export async function fetchHealth() {
   return okResponse.json();
 }
 
+export async function fetchCapabilities() {
+  const response = await fetch("/api/capabilities");
+  const okResponse = await ensureOk(response);
+  return okResponse.json();
+}
+
 export async function generateReport({ assignment, template }) {
   const formData = new FormData();
   formData.append("assignment", assignment);
@@ -24,4 +30,3 @@ export async function generateReport({ assignment, template }) {
   const okResponse = await ensureOk(response);
   return okResponse.json();
 }
-

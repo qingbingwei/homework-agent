@@ -1,42 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { downloadDocx, downloadMarkdown } from "./lib/download";
-import { fetchHealth, generateReport } from "./services/api";
+import { useSystemInfo } from "./hooks/useSystemInfo";
+import { generateReport } from "./services/api";
+import { CapabilitiesPanel } from "./ui/CapabilitiesPanel";
 import { HealthCard } from "./ui/HealthCard";
 import { ReportResult } from "./ui/ReportResult";
 import { UploadPanel } from "./ui/UploadPanel";
 
-const initialHealth = { status: "loading", message: "检查中...", meta: "正在连接后端与 Agent 服务" };
-
 export default function App() {
-  const [health, setHealth] = useState(initialHealth);
+  const { health, capabilities } = useSystemInfo();
   const [report, setReport] = useState(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    fetchHealth()
-      .then((payload) => {
-        if (!active) {
-          return;
-        }
-        setHealth({
-          status: payload.status,
-          message: payload.status === "ok" ? "服务可用" : "服务异常",
-          meta: `${payload.agent_url} · ${payload.model} · Agent ${payload.agent_status}`,
-        });
-      })
-      .catch((fetchError) => {
-        if (!active) {
-          return;
-        }
-        setHealth({ status: "error", message: "服务不可用", meta: fetchError.message });
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const helperText = useMemo(
     () => "支持 `.docx`、`.pdf`、`.md`。DOCX 模板支持 `{{REPORT_TITLE}}` 与 `{{REPORT_BODY}}` 占位符。",
@@ -71,6 +47,8 @@ export default function App() {
 
       <UploadPanel helperText={helperText} error={error} submitting={submitting} onSubmit={onSubmit} />
 
+      <CapabilitiesPanel capabilities={capabilities} />
+
       <ReportResult
         report={report}
         onDownloadMarkdown={() => report && downloadMarkdown(report)}
@@ -79,4 +57,3 @@ export default function App() {
     </main>
   );
 }
-

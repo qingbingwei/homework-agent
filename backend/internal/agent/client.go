@@ -24,6 +24,12 @@ type Client struct {
 	httpClient *http.Client
 }
 
+type HealthStatus struct {
+	Status             string `json:"status"`
+	Model              string `json:"model"`
+	AgentKeyConfigured bool   `json:"agent_key_configured"`
+}
+
 func NewClient(baseURL string, httpClient *http.Client) *Client {
 	return &Client{baseURL: baseURL, httpClient: httpClient}
 }
@@ -67,6 +73,34 @@ func (c *Client) GenerateReport(ctx context.Context, assignment FilePayload, tem
 		return result, fmt.Errorf("decode agent response: %w", err)
 	}
 	return result, nil
+}
+
+func (c *Client) Health(ctx context.Context) (HealthStatus, error) {
+	var status HealthStatus
+	endpoint := strings.TrimRight(c.baseURL, "/") + "/health"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return status, fmt.Errorf("create health request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return status, fmt.Errorf("call agent health: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return status, fmt.Errorf("read agent health: %w", err)
+	}
+	if resp.StatusCode >= http.StatusBadRequest {
+		return status, fmt.Errorf("agent health returned %s: %s", resp.Status, string(body))
+	}
+	if err := json.Unmarshal(body, &status); err != nil {
+		return status, fmt.Errorf("decode agent health: %w", err)
+	}
+	return status, nil
+
 }
 
 func writeFile(writer *multipart.Writer, fieldName string, file FilePayload) error {

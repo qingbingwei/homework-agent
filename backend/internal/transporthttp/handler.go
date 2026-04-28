@@ -13,11 +13,20 @@ import (
 
 	"github.com/qingbingwei/homework-agent/backend/internal/agent"
 	"github.com/qingbingwei/homework-agent/backend/internal/config"
+	"github.com/qingbingwei/homework-agent/backend/internal/report"
 )
 
+var supportedFormats = []string{".docx", ".pdf", ".md"}
+var docxPlaceholders = []string{"{{REPORT_TITLE}}", "{{REPORT_BODY}}"}
+
+type agentService interface {
+	GenerateReport(context.Context, agent.FilePayload, agent.FilePayload) (report.Result, error)
+	Health(context.Context) (agent.HealthStatus, error)
+}
+
 type Handler struct {
-	agentClient    *agent.Client
-	config         config.Config
+	agentClient      agentService
+	config           config.Config
 	staticFileServer http.Handler
 }
 
@@ -29,7 +38,14 @@ type healthResponse struct {
 	AgentKeyConfigured bool   `json:"agent_key_configured"`
 }
 
-func NewHandler(agentClient *agent.Client, cfg config.Config) http.Handler {
+type capabilitiesResponse struct {
+	SupportedFormats []string `json:"supported_formats"`
+	TemplateModes    []string `json:"template_modes"`
+	DocxPlaceholders []string `json:"docx_placeholders"`
+	MaxUploadBytes   int64    `json:"max_upload_bytes"`
+}
+
+func NewHandler(agentClient agentService, cfg config.Config) http.Handler {
 	frontendDir := resolveFrontendDir(cfg.FrontendDir)
 	return &Handler{
 		agentClient:       agentClient,
@@ -48,11 +64,24 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handleHealth(w)
 		return
 	}
+	if r.URL.Path == "/api/capabilities" {
+		h.handleCapabilities(w)
+		return
+	}
 	if r.URL.Path == "/api/report/generate" && r.Method == http.MethodPost {
 		h.handleGenerateReport(w, r)
 		return
 	}
 	h.staticFileServer.ServeHTTP(w, r)
+}
+
+func (h *Handler) handleCapabilities(w http.ResponseWriter) {
+	writeJSON(w, http.StatusOK, capabilitiesResponse{
+		SupportedFormats: supportedFormats,
+		TemplateModes:    []string{"docx-xml-placeholder", "reference-docx", "pandoc-generated"},
+		DocxPlaceholders: docxPlaceholders,
+		MaxUploadBytes:   h.config.MaxUploadBytes,
+	})
 }
 
 func (h *Handler) handleHealth(w http.ResponseWriter) {
@@ -130,28 +159,14 @@ func resolveFrontendDir(configured string) string {
 func (h *Handler) fetchAgentStatus() (string, bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.config.AgentServiceURL+"/health", nil)
-	if err != nil {
-		return "invalid-health-endpoint", false
-	}
-	resp, err := http.DefaultClient.Do(req)
+	status, err := h.agentClient.Health(ctx)
 	if err != nil {
 		return "unreachable", false
 	}
-	defer resp.Body.Close()
-
-	var payload struct {
-		Status             string `json:"status"`
-		AgentKeyConfigured bool   `json:"agent_key_configured"`
+	if status.Status == "" {
+		return "unknown", status.AgentKeyConfigured
 	}
-	if err = json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return "invalid-response", false
-	}
-	if payload.Status == "" {
-		return "unknown", payload.AgentKeyConfigured
-	}
-	return payload.Status, payload.AgentKeyConfigured
+	return status.Status, status.AgentKeyConfigured
 }
 
 func setCORSHeaders(w http.ResponseWriter) {

@@ -11,13 +11,13 @@
 
 ## Context Recovery Block
 
-- **Current milestone**: #5 — Run integration validation and publish commits
+- **Current milestone**: #8 — Run second-round validation and publish iteration commit
 - **Current status**: IN_PROGRESS
-- **Last completed**: #4 — Build frontend upload app
+- **Last completed**: #7 — Improve React UX with drag-drop and capability awareness
 - **Current artifact**: `.codex-tasks/20260429-homework-agent-epic/SUBTASKS.csv`
-- **Key context**: React 前端、Go 后端、Python Agent 已完成首版实现并通过本地自动化验证，正在执行联调与提交。
-- **Known issues**: 外部 LLM 提供方返回 `insufficient_quota`，导致真实报告生成链路在在线调用阶段被阻塞。
-- **Next action**: 提交当前迭代代码并持续保留联调状态说明。
+- **Key context**: 第二轮迭代已完成后端能力接口、处理器注入式架构、端到端接口测试，以及 React 拖拽上传与能力展示。
+- **Known issues**: 真实 LLM 生成仍受上游 `insufficient_quota` 限制，但错误已完整暴露，不影响本地架构迭代。
+- **Next action**: 记录本轮验证结果并提交到 GitHub。
 
 ## Milestone 1: Initialize repository and epic artifacts
 
@@ -61,3 +61,34 @@
   - `frontend/src/ui/ReportResult.jsx` — 结果预览与下载组件
   - `frontend/src/services/api.js` — 前端 API 访问封装
 
+## Milestone 5: Run integration validation and publish commits
+
+- **Status**: DONE
+- **Started**: 02:15
+- **Completed**: 02:20
+- **What was done**:
+  - 完成 `make test` 全量验证，并确认前后端与 Agent 基础链路可运行。
+  - 将首轮全栈脚手架提交并推送至 GitHub。
+  - 验证在线生成失败原因为上游配额不足，而不是本地路由或协议错误。
+- **Validation**: `make test` → exit 0；`git push origin main` → success；`curl -X POST http://127.0.0.1:8080/api/report/generate` → 502 with upstream quota detail
+- **Next step**: Milestone 6 — Enhance backend capabilities and integration coverage
+
+## Milestone 6-7: Backend/API hardening and React UX iteration
+
+- **Status**: DONE
+- **Started**: 02:20
+- **Completed**: 03:02
+- **What was done**:
+  - 为 Go 后端增加 `agentService` 接口注入，降低 HTTP 处理器与具体实现耦合。
+  - 增加 `/api/capabilities` 能力描述接口，并补齐健康接口、能力接口、上传接口测试。
+  - 为 React 前端增加拖拽上传组件、系统能力面板与周期性健康刷新 Hook。
+- **Validation**: `go test ./...` → exit 0；`npm --prefix frontend run build` → exit 0；`curl http://127.0.0.1:8080/api/capabilities` → exit 0
+- **Files changed**:
+  - `backend/internal/transporthttp/handler.go` — 增加能力接口与依赖注入
+  - `backend/internal/transporthttp/handler_test.go` — 增加能力与上传端点测试
+  - `backend/internal/agent/client.go` — 增加 Agent 健康检查方法
+  - `frontend/src/hooks/useSystemInfo.js` — 封装健康与能力拉取逻辑
+  - `frontend/src/ui/DropzoneField.jsx` — 新增拖拽上传组件
+  - `frontend/src/ui/CapabilitiesPanel.jsx` — 新增系统能力展示组件
+  - `frontend/src/ui/UploadPanel.jsx` — 接入拖拽交互
+  - `frontend/src/App.jsx` — 接入系统信息与能力面板

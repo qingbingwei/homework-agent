@@ -27,7 +27,8 @@ input {
 .hero-card,
 .panel-card,
 .status-card,
-.field-card,
+.dropzone-card,
+.capability-card,
 .preview-card {
   border: 1px solid #d8e0f0;
   border-radius: 20px;
@@ -96,20 +97,35 @@ input {
   align-items: stretch;
 }
 
-.field-card {
+.dropzone-card,
+.capability-card {
   gap: 8px;
   padding: 18px;
 }
 
-.field-card span {
+.dropzone-card span {
   font-weight: 700;
 }
 
-.field-card input {
-  padding: 12px;
-  border: 1px solid #ccd6eb;
-  border-radius: 12px;
+.dropzone-card {
+  display: flex;
+  min-height: 188px;
+  border: 1.5px dashed #b8c7ea;
   background: #f8faff;
+  cursor: pointer;
+}
+
+.dropzone-card strong {
+  margin-top: auto;
+}
+
+.dropzone-card input {
+  display: none;
+}
+
+.dropzone-card.is-selected {
+  border-color: #4969f0;
+  background: #eef3ff;
 }
 
 .primary-button,
@@ -148,6 +164,31 @@ input {
   background: #eef3ff;
   color: #2948b6;
   font-size: 14px;
+}
+
+.capability-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.capability-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e0e8f8;
+  background: #fbfcff;
+}
+
+.capability-card h3,
+.capability-value {
+  margin: 0;
+}
+
+.capability-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #5a6884;
+  line-height: 1.7;
 }
 
 .preview-card {

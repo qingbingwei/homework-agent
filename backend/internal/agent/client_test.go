@@ -30,3 +30,24 @@ func TestGenerateReport(t *testing.T) {
 	}
 }
 
+func TestHealth(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/health" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ok","model":"gpt-5.5","agent_key_configured":true}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, &http.Client{Timeout: time.Second})
+	status, err := client.Health(context.Background())
+	if err != nil {
+		t.Fatalf("Health returned error: %v", err)
+	}
+	if status.Model != "gpt-5.5" {
+		t.Fatalf("unexpected model: %s", status.Model)
+	}
+}

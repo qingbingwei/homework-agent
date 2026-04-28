@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const acceptedTypes = ".docx,.pdf,.md";
+import { DropzoneField } from "./DropzoneField";
 
 export function UploadPanel({ helperText, error, submitting, onSubmit }) {
   const [assignment, setAssignment] = useState(null);
@@ -20,21 +20,26 @@ export function UploadPanel({ helperText, error, submitting, onSubmit }) {
         <div>
           <p className="eyebrow">文件输入</p>
           <h2>上传作业与模板</h2>
+          <p className="helper-text">支持点击选择，也支持拖拽文件直接投递。</p>
         </div>
       </div>
 
       <form className="upload-grid" onSubmit={handleSubmit}>
-        <label className="field-card">
-          <span>作业文件</span>
-          <input accept={acceptedTypes} type="file" onChange={(event) => setAssignment(event.target.files?.[0] ?? null)} />
-          <small>{assignment ? assignment.name : "请选择 `.docx`、`.pdf` 或 `.md` 文件"}</small>
-        </label>
+        <DropzoneField
+          description="请选择 `.docx`、`.pdf` 或 `.md` 文件"
+          file={assignment}
+          id="assignment-file"
+          label="作业文件"
+          onChange={setAssignment}
+        />
 
-        <label className="field-card">
-          <span>实验模板</span>
-          <input accept={acceptedTypes} type="file" onChange={(event) => setTemplate(event.target.files?.[0] ?? null)} />
-          <small>{template ? template.name : "建议模板预留标题与正文占位符"}</small>
-        </label>
+        <DropzoneField
+          description="建议模板预留标题与正文占位符"
+          file={template}
+          id="template-file"
+          label="实验模板"
+          onChange={setTemplate}
+        />
 
         <button className="primary-button" disabled={submitting || !assignment || !template} type="submit">
           {submitting ? "生成中..." : "生成实验报告"}
@@ -46,4 +51,3 @@ export function UploadPanel({ helperText, error, submitting, onSubmit }) {
     </section>
   );
 }
-
