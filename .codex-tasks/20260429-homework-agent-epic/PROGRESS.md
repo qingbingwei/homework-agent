@@ -11,13 +11,13 @@
 
 ## Context Recovery Block
 
-- **Current milestone**: #10 — Run third-round validation and publish iteration commit
-- **Current status**: DONE
-- **Last completed**: #10 — Run third-round validation and publish iteration commit
+- **Current milestone**: #12 — Validate one-click startup and publish iteration commit
+- **Current status**: IN_PROGRESS
+- **Last completed**: #11 — Add one-click startup script and Makefile entry
 - **Current artifact**: `.codex-tasks/20260429-homework-agent-epic/SUBTASKS.csv`
-- **Key context**: 第三轮迭代已完成验证并推送，Epic 当前处于持续迭代后的稳定状态。
+- **Key context**: 当前已补上一键启动能力，`scripts/dev.sh` 会自动校验依赖、构建前端并同时拉起 Agent 与 Backend。
 - **Known issues**: 真实 LLM 生成仍受上游 `insufficient_quota` 限制，但错误已完整暴露，不影响本地架构迭代。
-- **Next action**: 在新的迭代中继续围绕真实生成链路与可观测性推进。
+- **Next action**: 提交一键启动脚本相关变更并推送到 GitHub。
 
 ## Milestone 1: Initialize repository and epic artifacts
 
@@ -131,3 +131,14 @@
   - 启动后端并确认上传错误返回结构化 JSON。
   - 提交并推送第三轮错误体验优化代码。
 - **Validation**: `make test` → exit 0；`curl -i -X POST http://127.0.0.1:8080/api/report/generate` → 502 JSON；`git push origin main` → success
+
+## Milestone 11: Add one-click startup script and Makefile entry
+
+- **Status**: DONE
+- **Started**: 10:16
+- **Completed**: 10:19
+- **What was done**:
+  - 新增 `scripts/dev.sh`，统一处理依赖检查、前端构建、Agent 启动、Backend 启动与退出清理。
+  - 为 `Makefile` 增加 `setup`、`agent-install`、`frontend-install`、`dev` 入口。
+  - 启动脚本在未设置 `LLM_API_KEY` 时显式提示，但仍允许服务启动用于本地联调。
+- **Validation**: `bash -n scripts/dev.sh` → exit 0；`bash scripts/dev.sh` → health/capabilities reachable
