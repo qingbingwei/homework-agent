@@ -11,13 +11,13 @@
 
 ## Context Recovery Block
 
-- **Current milestone**: #12 — Validate one-click startup and publish iteration commit
+- **Current milestone**: #14 — Validate agent env workflow and publish iteration commit
 - **Current status**: IN_PROGRESS
-- **Last completed**: #11 — Add one-click startup script and Makefile entry
+- **Last completed**: #13 — Add agent-local env loading support
 - **Current artifact**: `.codex-tasks/20260429-homework-agent-epic/SUBTASKS.csv`
-- **Key context**: 当前已补上一键启动能力，`scripts/dev.sh` 会自动校验依赖、构建前端并同时拉起 Agent 与 Backend。
+- **Key context**: Agent 现在会优先读取 `agent/.env`，一键启动脚本也会自动 source 该文件，因此本地无需手动 export LLM 变量。
 - **Known issues**: 真实 LLM 生成仍受上游 `insufficient_quota` 限制，但错误已完整暴露，不影响本地架构迭代。
-- **Next action**: 提交一键启动脚本相关变更并推送到 GitHub。
+- **Next action**: 提交 env 支持相关代码并推送到 GitHub。
 
 ## Milestone 1: Initialize repository and epic artifacts
 
@@ -142,3 +142,24 @@
   - 为 `Makefile` 增加 `setup`、`agent-install`、`frontend-install`、`dev` 入口。
   - 启动脚本在未设置 `LLM_API_KEY` 时显式提示，但仍允许服务启动用于本地联调。
 - **Validation**: `bash -n scripts/dev.sh` → exit 0；`bash scripts/dev.sh` → health/capabilities reachable
+
+## Milestone 12: Validate one-click startup and publish iteration commit
+
+- **Status**: DONE
+- **Started**: 10:19
+- **Completed**: 10:20
+- **What was done**:
+  - 提交并推送一键启动脚本改动。
+  - 确认 `make dev` 与 `scripts/dev.sh` 可以作为项目统一启动入口。
+- **Validation**: `git push origin main` → success
+
+## Milestone 13: Add agent-local env loading support
+
+- **Status**: DONE
+- **Started**: 10:23
+- **Completed**: 10:25
+- **What was done**:
+  - 在 `agent/app/config.py` 中加入本地 `agent/.env` 解析逻辑。
+  - 在 `scripts/dev.sh` 中增加 `agent/.env` 自动加载。
+  - 在本地创建 `agent/.env`，写入 Base URL、API Key、模型配置。
+- **Validation**: `python3 -c "... load_settings() ..."` → loaded values；`env -u LLM_API_KEY -u LLM_BASE_URL -u LLM_MODEL bash scripts/dev.sh` → health ok

@@ -3,6 +3,15 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+AGENT_ENV_FILE="${ROOT_DIR}/agent/.env"
+
+if [[ -f "${AGENT_ENV_FILE}" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${AGENT_ENV_FILE}"
+  set +a
+fi
+
 AGENT_HOST="${AGENT_HOST:-127.0.0.1}"
 AGENT_PORT="${AGENT_PORT:-8000}"
 BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
