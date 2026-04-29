@@ -33,7 +33,7 @@ export interface GraphDependencies {
 export const buildGraph = (deps: GraphDependencies) => {
   const graph = new StateGraph<GraphState>({ channels: graphChannels as never });
 
-  graph.addNode("plan", async (state) => {
+  graph.addNode("plan_node", async (state) => {
     const runnableConfig = buildRunnableConfig(deps.config, state.requestId, {
       runName: "plan-write/plan",
       tags: ["plan-write", "plan"],
@@ -43,7 +43,7 @@ export const buildGraph = (deps: GraphDependencies) => {
     return { plan };
   });
 
-  graph.addNode("coding", async (state) => {
+  graph.addNode("coding_node", async (state) => {
     if (!state.plan) throw new Error("plan missing before coding node");
     const results: TaskResult[] = [];
     for (const task of state.plan.tasks) {
@@ -79,7 +79,7 @@ export const buildGraph = (deps: GraphDependencies) => {
     return { results };
   });
 
-  graph.addNode("write", async (state) => {
+  graph.addNode("write_node", async (state) => {
     if (!state.plan) throw new Error("plan missing before write node");
     const runnableConfig = buildRunnableConfig(deps.config, state.requestId, {
       runName: "plan-write/write",
@@ -96,10 +96,10 @@ export const buildGraph = (deps: GraphDependencies) => {
     return { writer };
   });
 
-  graph.addEdge(START as never, "plan" as never);
-  graph.addEdge("plan" as never, "coding" as never);
-  graph.addEdge("coding" as never, "write" as never);
-  graph.addEdge("write" as never, END as never);
+  graph.addEdge(START as never, "plan_node" as never);
+  graph.addEdge("plan_node" as never, "coding_node" as never);
+  graph.addEdge("coding_node" as never, "write_node" as never);
+  graph.addEdge("write_node" as never, END as never);
 
   return graph.compile();
 };

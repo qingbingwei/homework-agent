@@ -18,7 +18,6 @@ BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
 BACKEND_PORT="${BACKEND_PORT:-8080}"
 LLM_BASE_URL="${LLM_BASE_URL:-https://api.asxs.top/v1}"
 LLM_MODEL="${LLM_MODEL:-gpt-5.5}"
-PYTHON_BIN="${PYTHON_BIN:-python3}"
 LOG_DIR="${ROOT_DIR}/tmp/runtime"
 AGENT_LOG="${LOG_DIR}/agent.log"
 BACKEND_LOG="${LOG_DIR}/backend.log"
@@ -61,9 +60,9 @@ wait_for_http() {
 }
 
 ensure_agent_dependencies() {
-  if ! "$PYTHON_BIN" -c 'import fastapi, httpx, pypdf, uvicorn, multipart' >/dev/null 2>&1; then
-    printf '安装 Python Agent 依赖...\n'
-    "$PYTHON_BIN" -m pip install -r "${ROOT_DIR}/agent/requirements.txt"
+  if [[ ! -d "${ROOT_DIR}/agent/node_modules" ]]; then
+    printf '安装 Agent 依赖...\n'
+    (cd "${ROOT_DIR}/agent" && npm install)
   fi
 }
 
@@ -75,17 +74,22 @@ ensure_frontend_dependencies() {
 }
 
 start_agent() {
-  printf '启动 Python Agent...\n'
+  printf '启动 TypeScript Agent...\n'
   (
-    cd "${ROOT_DIR}"
+    cd "${ROOT_DIR}/agent"
+    AGENT_HOST="${AGENT_HOST}" \
+    AGENT_PORT="${AGENT_PORT}" \
     LLM_BASE_URL="${LLM_BASE_URL}" \
     LLM_API_KEY="${LLM_API_KEY:-}" \
     LLM_MODEL="${LLM_MODEL}" \
-    PYTHONPATH="${ROOT_DIR}/agent" \
-    "$PYTHON_BIN" -m uvicorn app.main:app --app-dir "${ROOT_DIR}/agent" --host "${AGENT_HOST}" --port "${AGENT_PORT}"
+    LANGSMITH_TRACING="${LANGSMITH_TRACING:-false}" \
+    LANGSMITH_API_KEY="${LANGSMITH_API_KEY:-}" \
+    LANGSMITH_PROJECT="${LANGSMITH_PROJECT:-homework-agent}" \
+    LANGSMITH_ENDPOINT="${LANGSMITH_ENDPOINT:-https://api.smith.langchain.com}" \
+    npm run start
   ) >"${AGENT_LOG}" 2>&1 &
   AGENT_PID=$!
-  wait_for_http "http://${AGENT_HOST}:${AGENT_PORT}/health" "Python Agent" "${AGENT_LOG}"
+  wait_for_http "http://${AGENT_HOST}:${AGENT_PORT}/health" "TypeScript Agent" "${AGENT_LOG}"
 }
 
 start_backend() {
@@ -103,9 +107,9 @@ start_backend() {
 
 trap cleanup EXIT INT TERM
 
-require_command "$PYTHON_BIN"
-require_command go
+require_command node
 require_command npm
+require_command go
 require_command curl
 require_command pandoc
 
