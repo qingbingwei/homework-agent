@@ -1,0 +1,6 @@
+id,task,status,acceptance_criteria,validation_command,completed_at,retry_count,notes
+1,Analyze project structure and runtime contracts,DONE,Runtime components and env requirements identified,test -f .codex-tasks/20260429-deploy-script/raw/project-analysis.md,2026-04-29,0,
+2,Design deployment script behavior,DONE,Commands and failure behavior documented,test -f .codex-tasks/20260429-deploy-script/raw/deploy-design.md,2026-04-29,0,
+3,Implement deployment script,DONE,Script exists and is executable,test -x scripts/deploy.sh,2026-04-29,0,
+4,Run validation checks,DONE,Script syntax and relevant builds/tests pass,bash -n scripts/deploy.sh,2026-04-29,1,"build passed; test passed after rerun outside sandbox for httptest port binding"
+5,Record final usage notes,DONE,Progress log contains deployment usage summary,test -f .codex-tasks/20260429-deploy-script/PROGRESS.md,2026-04-29,0,
