@@ -4,6 +4,8 @@ class ApiError extends Error {
     this.name = "ApiError";
     this.code = options.code || "unknown_error";
     this.source = options.source || "unknown";
+    this.requestId = options.request_id || "";
+    this.stage = options.stage || "";
   }
 }
 

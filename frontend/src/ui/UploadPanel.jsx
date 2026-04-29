@@ -15,6 +15,20 @@ function getErrorTitle(error) {
   return "请求失败";
 }
 
+function getErrorMeta(error) {
+  if (!error) {
+    return "";
+  }
+  const parts = [];
+  if (error.stage) {
+    parts.push(`阶段: ${error.stage}`);
+  }
+  if (error.requestId) {
+    parts.push(`请求 ID: ${error.requestId}`);
+  }
+  return parts.join(" · ");
+}
+
 export function UploadPanel({ helperText, error, submitting, onSubmit }) {
   const [assignment, setAssignment] = useState(null);
   const [template, setTemplate] = useState(null);
@@ -64,6 +78,7 @@ export function UploadPanel({ helperText, error, submitting, onSubmit }) {
         <div className="error-banner" role="alert">
           <strong>{getErrorTitle(error)}</strong>
           <span>{error.message}</span>
+          {getErrorMeta(error) ? <small>{getErrorMeta(error)}</small> : null}
         </div>
       ) : null}
     </section>

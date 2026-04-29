@@ -26,7 +26,13 @@ export default function App() {
       const payload = await generateReport(files);
       setReport(payload);
     } catch (submitError) {
-      setError({ message: submitError.message, code: submitError.code, source: submitError.source });
+      setError({
+        message: submitError.message,
+        code: submitError.code,
+        source: submitError.source,
+        requestId: submitError.requestId,
+        stage: submitError.stage,
+      });
     } finally {
       setSubmitting(false);
     }

@@ -3,6 +3,7 @@ package transporthttp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -50,6 +51,8 @@ type errorResponse struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 	Source  string `json:"source"`
+	RequestID string `json:"request_id,omitempty"`
+	Stage string `json:"stage,omitempty"`
 }
 
 func NewHandler(agentClient agentService, cfg config.Config) http.Handler {
@@ -121,7 +124,7 @@ func (h *Handler) handleGenerateReport(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.agentClient.GenerateReport(r.Context(), assignment, template)
 	if err != nil {
-		writeErrorJSON(w, http.StatusBadGateway, classifyUpstreamError(err.Error()), "agent", err.Error())
+		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
@@ -190,6 +193,26 @@ func writeJSON(w http.ResponseWriter, statusCode int, payload any) {
 
 func writeErrorJSON(w http.ResponseWriter, statusCode int, code string, source string, message string) {
 	writeJSON(w, statusCode, errorResponse{Code: code, Message: message, Source: source})
+}
+
+func writeGenerateError(w http.ResponseWriter, err error) {
+	var serviceErr *agent.ServiceError
+	if errors.As(err, &serviceErr) {
+		code := serviceErr.Code
+		classifiedCode := classifyUpstreamError(serviceErr.Error())
+		if classifiedCode == "upstream_quota_exceeded" || code == "" {
+			code = classifiedCode
+		}
+		writeJSON(w, http.StatusBadGateway, errorResponse{
+			Code: code,
+			Message: serviceErr.Error(),
+			Source: "agent",
+			RequestID: serviceErr.RequestID,
+			Stage: serviceErr.Stage,
+		})
+		return
+	}
+	writeErrorJSON(w, http.StatusBadGateway, classifyUpstreamError(err.Error()), "agent", err.Error())
 }
 
 func classifyUpstreamError(message string) string {

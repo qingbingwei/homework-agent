@@ -10,3 +10,9 @@ class ReportResponse(BaseModel):
     template_strategy: str
     model: str
 
+
+class AgentErrorResponse(BaseModel):
+    code: str
+    message: str
+    request_id: str
+    stage: str

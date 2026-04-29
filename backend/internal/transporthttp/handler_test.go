@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -33,7 +32,7 @@ func (fakeAgentService) Health(_ context.Context) (agent.HealthStatus, error) {
 }
 
 func (failingAgentService) GenerateReport(_ context.Context, _ agent.FilePayload, _ agent.FilePayload) (report.Result, error) {
-	return report.Result{}, fmt.Errorf("LLM request failed (403): 当前可用额度不足")
+	return report.Result{}, &agent.ServiceError{StatusCode: 500, Code: "internal_agent_error", Message: "LLM request failed (403): 当前可用额度不足", RequestID: "req-123", Stage: "generate_report"}
 }
 
 func (failingAgentService) Health(_ context.Context) (agent.HealthStatus, error) {
@@ -142,6 +141,9 @@ func TestGenerateReportEndpointErrorResponse(t *testing.T) {
 		t.Fatalf("json decode error: %v", err)
 	}
 	if payload["code"] != "upstream_quota_exceeded" {
+		t.Fatalf("unexpected error payload: %#v", payload)
+	}
+	if payload["request_id"] != "req-123" {
 		t.Fatalf("unexpected error payload: %#v", payload)
 	}
 }

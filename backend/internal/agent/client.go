@@ -30,6 +30,29 @@ type HealthStatus struct {
 	AgentKeyConfigured bool   `json:"agent_key_configured"`
 }
 
+type ServiceError struct {
+	StatusCode int    `json:"-"`
+	Code       string `json:"code"`
+	Message    string `json:"message"`
+	RequestID  string `json:"request_id"`
+	Stage      string `json:"stage"`
+	RawBody    string `json:"-"`
+}
+
+func (e *ServiceError) Error() string {
+	if e == nil {
+		return "agent service error"
+	}
+	message := e.Message
+	if message == "" {
+		message = e.RawBody
+	}
+	if e.RequestID == "" {
+		return fmt.Sprintf("agent service returned %d: %s", e.StatusCode, message)
+	}
+	return fmt.Sprintf("agent service returned %d [request_id=%s]: %s", e.StatusCode, e.RequestID, message)
+}
+
 func NewClient(baseURL string, httpClient *http.Client) *Client {
 	return &Client{baseURL: baseURL, httpClient: httpClient}
 }
@@ -67,12 +90,22 @@ func (c *Client) GenerateReport(ctx context.Context, assignment FilePayload, tem
 		return result, fmt.Errorf("read agent response: %w", err)
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
-		return result, fmt.Errorf("agent service returned %s: %s", resp.Status, string(body))
+		return result, buildServiceError(resp.StatusCode, body)
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return result, fmt.Errorf("decode agent response: %w", err)
 	}
 	return result, nil
+}
+
+func buildServiceError(statusCode int, body []byte) error {
+	serviceError := &ServiceError{StatusCode: statusCode, RawBody: string(body)}
+	if err := json.Unmarshal(body, serviceError); err == nil {
+		if serviceError.Code != "" || serviceError.Message != "" || serviceError.RequestID != "" {
+			return serviceError
+		}
+	}
+	return serviceError
 }
 
 func (c *Client) Health(ctx context.Context) (HealthStatus, error) {

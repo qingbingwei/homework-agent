@@ -51,3 +51,24 @@ func TestHealth(t *testing.T) {
 		t.Fatalf("unexpected model: %s", status.Model)
 	}
 }
+
+func TestGenerateReportReturnsStructuredServiceError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"code":"internal_agent_error","message":"boom","request_id":"req-123","stage":"generate_report"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, &http.Client{Timeout: time.Second})
+	_, err := client.GenerateReport(context.Background(), FilePayload{Name: "hw.md", ContentType: "text/markdown", Data: []byte("a")}, FilePayload{Name: "template.md", ContentType: "text/markdown", Data: []byte("b")})
+	serviceErr, ok := err.(*ServiceError)
+	if !ok {
+		t.Fatalf("expected ServiceError, got %T", err)
+	}
+	if serviceErr.RequestID != "req-123" {
+		t.Fatalf("unexpected request id: %#v", serviceErr)
+	}
+}
