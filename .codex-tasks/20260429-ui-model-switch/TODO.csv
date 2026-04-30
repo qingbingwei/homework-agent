@@ -1,0 +1,7 @@
+id,task,status,acceptance_criteria,validation_command,completed_at,retry_count,notes
+1,Generate design system and inspect current flow,DONE,Design system and request flow understood,test -f .codex-tasks/20260429-ui-model-switch/raw/analysis.md,2026-04-29,0,
+2,Add independent coding DeepSeek config,DONE,Agent config exposes GPT and DeepSeek coding profiles,rg "CODING_DEEPSEEK_LLM" agent/.env.example agent/src/config.ts,2026-04-30,0,DeepSeek coding config has only BASE_URL/API_KEY/MODEL/REASONING_EFFORT/THINKING_TYPE
+3,Wire model profile through frontend backend and agent,DONE,Multipart profile reaches agent service,rg "coding_model_profile" frontend backend agent -n,2026-04-30,0,
+4,Refactor frontend UI,DONE,Model switch appears in upload workflow,npm --prefix frontend run build,2026-04-30,0,
+5,Run validation,DONE,Frontend backend and agent checks pass,npm --prefix agent run typecheck,2026-04-30,0,
+6,Record completion,DONE,Progress log summarizes changes,test -f .codex-tasks/20260429-ui-model-switch/PROGRESS.md,2026-04-30,0,

@@ -1,0 +1,6 @@
+id,task,status,acceptance_criteria,validation_command,completed_at,retry_count,notes
+1,Inspect current agent test and route contracts,DONE,Contracts understood,test -f .codex-tasks/20260429-agent-live-test/raw/analysis.md,2026-04-29,0,
+2,Add live test and npm script,DONE,Live test exists and is script-addressable,test -f agent/tests/live/agent.live.test.ts,2026-04-29,0,
+3,Run non-live validation,DONE,Default unit tests do not run live test,npm --prefix agent test,2026-04-29,0,"typecheck passed; npm test passed with live test skipped"
+4,Run live validation against actual URL,DONE,Actual agent URL returns report content,npm --prefix agent run test:live,2026-04-29,1,"sandbox run failed with connect EPERM; escalated run passed in 69.7s"
+5,Record results,DONE,Progress records validation outcome,test -f .codex-tasks/20260429-agent-live-test/PROGRESS.md,2026-04-29,0,

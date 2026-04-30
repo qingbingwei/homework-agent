@@ -1,0 +1,6 @@
+id,task,status,acceptance_criteria,validation_command,completed_at,retry_count,notes
+1,Analyze current port and reasoning configuration,DONE,Root causes recorded,test -f .codex-tasks/20260429-port-reasoning-fix/raw/analysis.md,2026-04-29,0,
+2,Update env and config defaults,DONE,Agent defaults and env examples use 19000,rg "AGENT_PORT=19000|AGENT_PORT\", \"19000\"" agent/.env.example agent/src/config.ts,2026-04-29,0,
+3,Fix coding reasoning parameter passthrough,DONE,coding reasoning_effort preserves xhigh,rg "reasoning_effort: codingConfig.reasoningEffort" agent/src/llm/chat.ts,2026-04-29,0,
+4,Run validation,DONE,typecheck and targeted tests pass,npm --prefix agent run typecheck,2026-04-29,0,"typecheck, targeted chat test, full agent test, and agent build passed"
+5,Record completion,DONE,Progress log summarizes changes,test -f .codex-tasks/20260429-port-reasoning-fix/PROGRESS.md,2026-04-29,0,
