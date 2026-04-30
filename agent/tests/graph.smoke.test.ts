@@ -61,9 +61,36 @@ describe("runReportService (graph smoke)", () => {
     const config: AppConfig = {
       host: "127.0.0.1",
       port: 0,
-      llmBaseUrl: "https://example.invalid/v1",
-      llmApiKey: "sk-test",
-      llmModel: "gpt-5.5",
+      planLlm: {
+        baseUrl: "https://example.invalid/v1",
+        apiKey: "sk-test",
+        model: "deepseek-v4-pro",
+        reasoningEffort: "high",
+        thinkingType: "enabled",
+      },
+      codingLlm: {
+        provider: "OpenAI",
+        baseUrl: "https://example.invalid/v1",
+        apiKey: "sk-test",
+        model: "gpt-5.5",
+        reviewModel: "gpt-5.5",
+        reasoningEffort: "xhigh",
+        thinkingType: "enabled",
+        disableResponseStorage: true,
+        networkAccess: "enabled",
+        windowsWslSetupAcknowledged: true,
+        contextWindow: 400000,
+        autoCompactTokenLimit: 360000,
+        wireApi: "responses",
+        requiresOpenAIAuth: true,
+      },
+      codingDeepseekLlm: {
+        baseUrl: "https://example.invalid/v1",
+        apiKey: "sk-test",
+        model: "deepseek-v4-pro",
+        reasoningEffort: "max",
+        thinkingType: "enabled",
+      },
       langsmith: { enabled: false, apiKey: "", project: "test", endpoint: "" },
     };
 
@@ -74,9 +101,12 @@ describe("runReportService (graph smoke)", () => {
       assignment: { filename: "homework.docx", data: assignmentDocx },
       template: { filename: "template.md", data: templateMarkdown },
       requestId: "req-test",
+      codingModelProfile: "deepseek",
     });
 
-    expect(response.model).toBe("gpt-5.5");
+    expect(response.model).toBe("deepseek-v4-pro");
+    expect(response.coding_model_profile).toBe("deepseek");
+    expect(response.coding_model).toBe("deepseek-v4-pro");
     expect(response.template_strategy).toBe("pandoc-generated");
     expect(response.markdown_content).toContain("Demo Lab Report");
     expect(response.file_name).toBe("homework-report.docx");

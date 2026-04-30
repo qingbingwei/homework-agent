@@ -5,6 +5,7 @@ export interface TracingOptions {
   runName?: string;
   tags?: string[];
   metadata?: Record<string, unknown>;
+  model?: string;
 }
 
 let tracingReady = false;
@@ -39,7 +40,7 @@ export const buildRunnableConfig = (
     tags: ["homework-agent", `request:${requestId}`, ...(options.tags ?? [])],
     metadata: {
       request_id: requestId,
-      model: config.llmModel,
+      model: options.model ?? config.planLlm.model,
       ...(options.metadata ?? {}),
     },
   };

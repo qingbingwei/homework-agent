@@ -20,9 +20,10 @@ import (
 
 var supportedFormats = []string{".docx", ".pdf", ".md"}
 var docxPlaceholders = []string{"{{REPORT_TITLE}}", "{{REPORT_BODY}}"}
+var codingModelProfiles = []string{"gpt", "deepseek"}
 
 type agentService interface {
-	GenerateReport(context.Context, agent.FilePayload, agent.FilePayload) (report.Result, error)
+	GenerateReport(context.Context, agent.GenerateReportRequest) (report.Result, error)
 	Health(context.Context) (agent.HealthStatus, error)
 }
 
@@ -41,26 +42,27 @@ type healthResponse struct {
 }
 
 type capabilitiesResponse struct {
-	SupportedFormats []string `json:"supported_formats"`
-	TemplateModes    []string `json:"template_modes"`
-	DocxPlaceholders []string `json:"docx_placeholders"`
-	MaxUploadBytes   int64    `json:"max_upload_bytes"`
+	SupportedFormats    []string `json:"supported_formats"`
+	TemplateModes       []string `json:"template_modes"`
+	DocxPlaceholders    []string `json:"docx_placeholders"`
+	CodingModelProfiles []string `json:"coding_model_profiles"`
+	MaxUploadBytes      int64    `json:"max_upload_bytes"`
 }
 
 type errorResponse struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Source  string `json:"source"`
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	Source    string `json:"source"`
 	RequestID string `json:"request_id,omitempty"`
-	Stage string `json:"stage,omitempty"`
+	Stage     string `json:"stage,omitempty"`
 }
 
 func NewHandler(agentClient agentService, cfg config.Config) http.Handler {
 	frontendDir := resolveFrontendDir(cfg.FrontendDir)
 	return &Handler{
-		agentClient:       agentClient,
-		config:            cfg,
-		staticFileServer:  http.FileServer(http.Dir(frontendDir)),
+		agentClient:      agentClient,
+		config:           cfg,
+		staticFileServer: http.FileServer(http.Dir(frontendDir)),
 	}
 }
 
@@ -87,10 +89,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleCapabilities(w http.ResponseWriter) {
 	writeJSON(w, http.StatusOK, capabilitiesResponse{
-		SupportedFormats: supportedFormats,
-		TemplateModes:    []string{"docx-xml-placeholder", "reference-docx", "pandoc-generated"},
-		DocxPlaceholders: docxPlaceholders,
-		MaxUploadBytes:   h.config.MaxUploadBytes,
+		SupportedFormats:    supportedFormats,
+		TemplateModes:       []string{"docx-xml-placeholder", "reference-docx", "pandoc-generated"},
+		DocxPlaceholders:    docxPlaceholders,
+		CodingModelProfiles: codingModelProfiles,
+		MaxUploadBytes:      h.config.MaxUploadBytes,
 	})
 }
 
@@ -121,13 +124,35 @@ func (h *Handler) handleGenerateReport(w http.ResponseWriter, r *http.Request) {
 		writeErrorJSON(w, http.StatusBadRequest, "invalid_template", "backend", err.Error())
 		return
 	}
+	codingModelProfile, err := readCodingModelProfile(r)
+	if err != nil {
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_coding_model_profile", "backend", err.Error())
+		return
+	}
 
-	result, err := h.agentClient.GenerateReport(r.Context(), assignment, template)
+	result, err := h.agentClient.GenerateReport(r.Context(), agent.GenerateReportRequest{
+		Assignment:         assignment,
+		Template:           template,
+		CodingModelProfile: codingModelProfile,
+	})
 	if err != nil {
 		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func readCodingModelProfile(r *http.Request) (string, error) {
+	value := strings.TrimSpace(r.FormValue("coding_model_profile"))
+	if value == "" {
+		return "gpt", nil
+	}
+	for _, profile := range codingModelProfiles {
+		if value == profile {
+			return value, nil
+		}
+	}
+	return "", fmt.Errorf("unsupported coding model profile: %s", value)
 }
 
 func readUploadedFile(r *http.Request, field string) (agent.FilePayload, error) {
@@ -204,11 +229,11 @@ func writeGenerateError(w http.ResponseWriter, err error) {
 			code = classifiedCode
 		}
 		writeJSON(w, http.StatusBadGateway, errorResponse{
-			Code: code,
-			Message: serviceErr.Error(),
-			Source: "agent",
+			Code:      code,
+			Message:   serviceErr.Error(),
+			Source:    "agent",
 			RequestID: serviceErr.RequestID,
-			Stage: serviceErr.Stage,
+			Stage:     serviceErr.Stage,
 		})
 		return
 	}

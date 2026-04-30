@@ -1,5 +1,5 @@
 import { basename, extname } from "node:path";
-import type { AppConfig } from "../config.js";
+import { selectCodingLlmConfig, type AppConfig, type CodingModelProfile } from "../config.js";
 import { createChatModel } from "../llm/chat.js";
 import { runGraph } from "../agents/graph.js";
 import { parseUpload } from "../parsing/index.js";
@@ -10,6 +10,7 @@ export interface ReportInput {
   assignment: { filename: string; data: Buffer };
   template: { filename: string; data: Buffer };
   requestId: string;
+  codingModelProfile: CodingModelProfile;
 }
 
 export interface ReportResponse {
@@ -18,6 +19,8 @@ export interface ReportResponse {
   docx_base64: string;
   template_strategy: string;
   model: string;
+  coding_model_profile: CodingModelProfile;
+  coding_model: string;
 }
 
 const stripExt = (filename: string): string => {
@@ -32,15 +35,20 @@ export const runReportService = async (
 ): Promise<ReportResponse> => {
   const assignment = await parseUpload(input.assignment.filename, input.assignment.data);
   const template = await parseUpload(input.template.filename, input.template.data);
+  const codingConfig = selectCodingLlmConfig(config, input.codingModelProfile);
 
-  const planWriteModel = createChatModel(config, { tags: ["plan-write"], temperature: 0.2 });
-  const codingModel = createChatModel(config, { tags: ["coding-agent"], temperature: 0.1 });
+  const planWriteModel = createChatModel(config, "plan", { tags: ["plan-write"], temperature: 0.2 });
+  const codingModel = createChatModel(config, "coding", {
+    tags: ["coding-agent", `coding-profile:${input.codingModelProfile}`],
+    temperature: 0.1,
+    codingLlm: codingConfig,
+  });
 
   const finalState = await runGraph(
     { config, planWriteModel, codingModel },
     {
       requestId: input.requestId,
-      modelLabel: config.llmModel,
+      modelLabel: `${config.planLlm.model} -> ${codingConfig.model}`,
       assignment,
       template,
     },
@@ -62,6 +70,8 @@ export const runReportService = async (
     markdown_content: rendered.markdownContent,
     docx_base64: rendered.docxBytes.toString("base64"),
     template_strategy: rendered.templateStrategy,
-    model: config.llmModel,
+    model: config.planLlm.model,
+    coding_model_profile: input.codingModelProfile,
+    coding_model: codingConfig.model,
   };
 };

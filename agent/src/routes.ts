@@ -1,17 +1,21 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import type { AppConfig } from "./config.js";
+import { codingModelProfiles, normalizeCodingModelProfile, type AppConfig } from "./config.js";
 import { runReportService } from "./reporting/service.js";
 import { AgentError } from "./http/errors.js";
 
 interface UploadSlots {
   assignment: { filename: string; data: Buffer } | null;
   template: { filename: string; data: Buffer } | null;
+  codingModelProfile: string;
 }
 
 const readUploads = async (request: FastifyRequest): Promise<UploadSlots> => {
-  const slots: UploadSlots = { assignment: null, template: null };
+  const slots: UploadSlots = { assignment: null, template: null, codingModelProfile: "gpt" };
   for await (const part of request.parts()) {
-    if (part.type !== "file") continue;
+    if (part.type !== "file") {
+      if (part.fieldname === "coding_model_profile") slots.codingModelProfile = String(part.value ?? "");
+      continue;
+    }
     if (part.fieldname !== "assignment" && part.fieldname !== "template") continue;
     const buffer = await part.toBuffer();
     slots[part.fieldname] = { filename: part.filename ?? "upload", data: buffer };
@@ -19,12 +23,42 @@ const readUploads = async (request: FastifyRequest): Promise<UploadSlots> => {
   return slots;
 };
 
+const readCodingModelProfile = (value: string) => {
+  try {
+    return normalizeCodingModelProfile(value);
+  } catch (err) {
+    throw new AgentError({
+      code: "invalid_coding_model_profile",
+      message: (err as Error).message,
+      stage: "request_handling",
+      statusCode: 400,
+    });
+  }
+};
+
 export const registerRoutes = async (app: FastifyInstance, config: AppConfig) => {
   app.get("/health", async () => ({
     status: "ok",
-    model: config.llmModel,
-    agent_key_configured: Boolean(config.llmApiKey),
-    base_url: config.llmBaseUrl,
+    plan_model: config.planLlm.model,
+    plan_key_configured: Boolean(config.planLlm.apiKey),
+    plan_base_url: config.planLlm.baseUrl,
+    coding_model_provider: config.codingLlm.provider,
+    coding_model: config.codingLlm.model,
+    coding_review_model: config.codingLlm.reviewModel,
+    coding_base_url: config.codingLlm.baseUrl,
+    coding_wire_api: config.codingLlm.wireApi,
+    coding_requires_openai_auth: config.codingLlm.requiresOpenAIAuth,
+    coding_reasoning_effort: config.codingLlm.reasoningEffort,
+    coding_thinking_type: config.codingLlm.thinkingType,
+    coding_disable_response_storage: config.codingLlm.disableResponseStorage,
+    coding_network_access: config.codingLlm.networkAccess,
+    coding_windows_wsl_setup_acknowledged: config.codingLlm.windowsWslSetupAcknowledged,
+    coding_model_context_window: config.codingLlm.contextWindow,
+    coding_model_auto_compact_token_limit: config.codingLlm.autoCompactTokenLimit,
+    coding_model_profiles: codingModelProfiles,
+    coding_deepseek_model: config.codingDeepseekLlm.model,
+    coding_deepseek_key_configured: Boolean(config.codingDeepseekLlm.apiKey),
+    agent_key_configured: Boolean(config.planLlm.apiKey && config.codingLlm.apiKey),
   }));
 
   app.post("/generate-report", async (request, reply) => {
@@ -59,6 +93,7 @@ export const registerRoutes = async (app: FastifyInstance, config: AppConfig) =>
       assignment: slots.assignment,
       template: slots.template,
       requestId: request.requestId,
+      codingModelProfile: readCodingModelProfile(slots.codingModelProfile),
     });
     reply.header("Content-Type", "application/json").send(payload);
   });

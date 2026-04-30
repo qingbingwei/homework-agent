@@ -19,6 +19,12 @@ type FilePayload struct {
 	Data        []byte
 }
 
+type GenerateReportRequest struct {
+	Assignment         FilePayload
+	Template           FilePayload
+	CodingModelProfile string
+}
+
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
@@ -57,15 +63,18 @@ func NewClient(baseURL string, httpClient *http.Client) *Client {
 	return &Client{baseURL: baseURL, httpClient: httpClient}
 }
 
-func (c *Client) GenerateReport(ctx context.Context, assignment FilePayload, template FilePayload) (report.Result, error) {
+func (c *Client) GenerateReport(ctx context.Context, payload GenerateReportRequest) (report.Result, error) {
 	var result report.Result
 	requestBody := &bytes.Buffer{}
 	writer := multipart.NewWriter(requestBody)
 
-	if err := writeFile(writer, "assignment", assignment); err != nil {
+	if err := writeFile(writer, "assignment", payload.Assignment); err != nil {
 		return result, err
 	}
-	if err := writeFile(writer, "template", template); err != nil {
+	if err := writeFile(writer, "template", payload.Template); err != nil {
+		return result, err
+	}
+	if err := writer.WriteField("coding_model_profile", payload.CodingModelProfile); err != nil {
 		return result, err
 	}
 	if err := writer.Close(); err != nil {

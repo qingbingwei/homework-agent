@@ -37,6 +37,7 @@ export const buildGraph = (deps: GraphDependencies) => {
     const runnableConfig = buildRunnableConfig(deps.config, state.requestId, {
       runName: "plan-write/plan",
       tags: ["plan-write", "plan"],
+      model: deps.config.planLlm.model,
     });
     const plan = await planAssignment(deps.planWriteModel, state.assignment, state.template, runnableConfig);
     rootLogger.info({ requestId: state.requestId, tasks: plan.tasks.length }, "plan ready");
@@ -51,6 +52,7 @@ export const buildGraph = (deps: GraphDependencies) => {
         runName: `coding-agent/${task.id}`,
         tags: ["coding-agent", `task:${task.id}`],
         metadata: { task_title: task.title },
+        model: state.modelLabel,
       });
       try {
         const result = await runCodingAgent(
@@ -84,6 +86,7 @@ export const buildGraph = (deps: GraphDependencies) => {
     const runnableConfig = buildRunnableConfig(deps.config, state.requestId, {
       runName: "plan-write/write",
       tags: ["plan-write", "write"],
+      model: deps.config.planLlm.model,
     });
     const writer = await writeReport(
       deps.planWriteModel,

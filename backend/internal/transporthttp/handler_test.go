@@ -17,13 +17,15 @@ import (
 type fakeAgentService struct{}
 type failingAgentService struct{}
 
-func (fakeAgentService) GenerateReport(_ context.Context, assignment agent.FilePayload, template agent.FilePayload) (report.Result, error) {
+func (fakeAgentService) GenerateReport(_ context.Context, request agent.GenerateReportRequest) (report.Result, error) {
 	return report.Result{
-		FileName:         assignment.Name + "-report.docx",
-		MarkdownContent:  "# report\n\ncontent",
-		DocxBase64:       "Zm9v",
-		TemplateStrategy: template.Name,
-		Model:            "gpt-5.5",
+		FileName:           request.Assignment.Name + "-report.docx",
+		MarkdownContent:    "# report\n\ncontent",
+		DocxBase64:         "Zm9v",
+		TemplateStrategy:   request.Template.Name,
+		Model:              "gpt-5.5",
+		CodingModelProfile: request.CodingModelProfile,
+		CodingModel:        "deepseek-v4-pro",
 	}, nil
 }
 
@@ -31,7 +33,7 @@ func (fakeAgentService) Health(_ context.Context) (agent.HealthStatus, error) {
 	return agent.HealthStatus{Status: "ok", Model: "gpt-5.5", AgentKeyConfigured: true}, nil
 }
 
-func (failingAgentService) GenerateReport(_ context.Context, _ agent.FilePayload, _ agent.FilePayload) (report.Result, error) {
+func (failingAgentService) GenerateReport(_ context.Context, _ agent.GenerateReportRequest) (report.Result, error) {
 	return report.Result{}, &agent.ServiceError{StatusCode: 500, Code: "internal_agent_error", Message: "LLM request failed (403): 当前可用额度不足", RequestID: "req-123", Stage: "generate_report"}
 }
 
@@ -91,6 +93,9 @@ func TestGenerateReportEndpoint(t *testing.T) {
 	writer := multipart.NewWriter(body)
 	writeTestFile(t, writer, "assignment", "homework.md", "# work")
 	writeTestFile(t, writer, "template", "template.md", "# template")
+	if err := writer.WriteField("coding_model_profile", "deepseek"); err != nil {
+		t.Fatalf("write field: %v", err)
+	}
 	if err := writer.Close(); err != nil {
 		t.Fatalf("close writer: %v", err)
 	}
@@ -111,6 +116,9 @@ func TestGenerateReportEndpoint(t *testing.T) {
 	}
 	if payload.Model != "gpt-5.5" {
 		t.Fatalf("unexpected model: %#v", payload)
+	}
+	if payload.CodingModelProfile != "deepseek" {
+		t.Fatalf("unexpected coding model profile: %#v", payload)
 	}
 }
 
