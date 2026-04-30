@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 const LIVE_TEST_ENABLED = process.env.AGENT_LIVE_TEST === "1";
 const BASE_URL = process.env.AGENT_LIVE_BASE_URL ?? "http://127.0.0.1:19000";
 const CODING_MODEL_PROFILE = process.env.AGENT_LIVE_CODING_MODEL_PROFILE ?? "deepseek";
-const REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
+const REQUEST_TIMEOUT_MINUTES = 30;
+const MS_PER_MINUTE = 60_000;
+const REQUEST_TIMEOUT_MS = REQUEST_TIMEOUT_MINUTES * MS_PER_MINUTE;
 
 interface ReportResponse {
   file_name: string;

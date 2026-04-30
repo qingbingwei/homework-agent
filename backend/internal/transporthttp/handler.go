@@ -34,11 +34,12 @@ type Handler struct {
 }
 
 type healthResponse struct {
-	Status             string `json:"status"`
-	AgentURL           string `json:"agent_url"`
-	AgentStatus        string `json:"agent_status"`
-	Model              string `json:"model"`
-	AgentKeyConfigured bool   `json:"agent_key_configured"`
+	Status                    string `json:"status"`
+	AgentURL                  string `json:"agent_url"`
+	AgentStatus               string `json:"agent_status"`
+	Model                     string `json:"model"`
+	AgentKeyConfigured        bool   `json:"agent_key_configured"`
+	AgentClientTimeoutSeconds int64  `json:"agent_client_timeout_seconds"`
 }
 
 type capabilitiesResponse struct {
@@ -100,11 +101,12 @@ func (h *Handler) handleCapabilities(w http.ResponseWriter) {
 func (h *Handler) handleHealth(w http.ResponseWriter) {
 	agentStatus, agentKeyConfigured := h.fetchAgentStatus()
 	writeJSON(w, http.StatusOK, healthResponse{
-		Status:             "ok",
-		AgentURL:           h.config.AgentServiceURL,
-		AgentStatus:        agentStatus,
-		Model:              "gpt-5.5",
-		AgentKeyConfigured: agentKeyConfigured,
+		Status:                    "ok",
+		AgentURL:                  h.config.AgentServiceURL,
+		AgentStatus:               agentStatus,
+		Model:                     "gpt-5.5",
+		AgentKeyConfigured:        agentKeyConfigured,
+		AgentClientTimeoutSeconds: int64(h.config.AgentClientTimeout.Seconds()),
 	})
 }
 

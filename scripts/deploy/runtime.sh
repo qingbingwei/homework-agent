@@ -78,10 +78,11 @@ start_agent() {
 }
 
 start_backend() {
-  local agent_url frontend_dir pid port url
+  local agent_timeout_seconds agent_url frontend_dir pid port url
   port="$(backend_port)"
   url="$(backend_base_url)"
   agent_url="$(agent_base_url)"
+  agent_timeout_seconds="$(agent_client_timeout_seconds)"
   frontend_dir="$(frontend_runtime_dir)"
   [ -d "$frontend_dir" ] || fail "frontend dir does not exist: $frontend_dir"
   ensure_service_stopped backend "$BACKEND_PID_FILE"
@@ -90,7 +91,7 @@ start_backend() {
   log "starting backend"
   (
     cd "$BACKEND_DIR"
-    nohup env BACKEND_PORT="$port" AGENT_SERVICE_URL="$agent_url" FRONTEND_DIR="$frontend_dir" "$BACKEND_BIN" >"$BACKEND_LOG" 2>&1 &
+    nohup env BACKEND_PORT="$port" AGENT_SERVICE_URL="$agent_url" FRONTEND_DIR="$frontend_dir" AGENT_CLIENT_TIMEOUT_SECONDS="$agent_timeout_seconds" "$BACKEND_BIN" >"$BACKEND_LOG" 2>&1 &
     printf '%s\n' "$!" > "$BACKEND_PID_FILE"
   )
   pid="$(read_pid "$BACKEND_PID_FILE")"

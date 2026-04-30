@@ -10,11 +10,9 @@ import (
 	transporthttp "github.com/qingbingwei/homework-agent/backend/internal/transporthttp"
 )
 
-const agentClientTimeout = 10 * time.Minute
-
 func main() {
 	cfg := config.Load()
-	client := agent.NewClient(cfg.AgentServiceURL, &http.Client{Timeout: agentClientTimeout})
+	client := agent.NewClient(cfg.AgentServiceURL, &http.Client{Timeout: cfg.AgentClientTimeout})
 	handler := transporthttp.NewHandler(client, cfg)
 
 	server := &http.Server{
