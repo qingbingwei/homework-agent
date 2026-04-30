@@ -34,10 +34,11 @@ export async function fetchCapabilities() {
   return okResponse.json();
 }
 
-export async function generateReport({ assignment, template }) {
+export async function generateReport({ assignment, template, codingModelProfile }) {
   const formData = new FormData();
   formData.append("assignment", assignment);
   formData.append("template", template);
+  formData.append("coding_model_profile", codingModelProfile || "gpt");
 
   const response = await fetch("/api/report/generate", {
     method: "POST",

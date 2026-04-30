@@ -12,6 +12,7 @@ const initialCapabilities = {
   supported_formats: [],
   template_modes: [],
   docx_placeholders: [],
+  coding_model_profiles: [],
   max_upload_bytes: 0,
 };
 
@@ -66,4 +67,3 @@ export function useSystemInfo() {
 
   return { health, capabilities };
 }
-

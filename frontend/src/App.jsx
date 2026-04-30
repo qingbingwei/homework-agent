@@ -8,22 +8,52 @@ import { HealthCard } from "./ui/HealthCard";
 import { ReportResult } from "./ui/ReportResult";
 import { UploadPanel } from "./ui/UploadPanel";
 
+const MODEL_LABELS = {
+  gpt: { label: "GPT", description: "gpt-5.5 coding agent" },
+  deepseek: { label: "DeepSeek", description: "deepseek-v4-pro coding agent" },
+};
+
+const HELPER_TEXT = "支持 `.docx`、`.pdf`、`.md`。DOCX 模板支持 `{{REPORT_TITLE}}` 与 `{{REPORT_BODY}}` 占位符。";
+
+function buildModelOptions(profiles) {
+  const values = profiles.length > 0 ? profiles : ["gpt", "deepseek"];
+  return values.map((profile) => ({
+    value: profile,
+    label: MODEL_LABELS[profile]?.label || profile,
+    description: MODEL_LABELS[profile]?.description || profile,
+  }));
+}
+
+function WorkspaceHeader({ health }) {
+  return (
+    <section className="workspace-header">
+      <div className="hero-copy">
+        <p className="eyebrow">Homework Agent</p>
+        <h1>实验报告工作台</h1>
+        <p className="hero-description">上传作业与模板，选择 coding agent 模型，生成 Markdown 预览和 DOCX 报告。</p>
+      </div>
+      <HealthCard health={health} />
+    </section>
+  );
+}
+
 export default function App() {
   const { health, capabilities } = useSystemInfo();
   const [report, setReport] = useState(null);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedCodingModel, setSelectedCodingModel] = useState("gpt");
 
-  const helperText = useMemo(
-    () => "支持 `.docx`、`.pdf`、`.md`。DOCX 模板支持 `{{REPORT_TITLE}}` 与 `{{REPORT_BODY}}` 占位符。",
-    [],
+  const modelOptions = useMemo(
+    () => buildModelOptions(capabilities.coding_model_profiles),
+    [capabilities.coding_model_profiles],
   );
 
   const onSubmit = async (files) => {
     setSubmitting(true);
     setError(null);
     try {
-      const payload = await generateReport(files);
+      const payload = await generateReport({ ...files, codingModelProfile: selectedCodingModel });
       setReport(payload);
     } catch (submitError) {
       setError({
@@ -40,18 +70,17 @@ export default function App() {
 
   return (
     <main className="page-shell">
-      <section className="hero-card">
-        <div className="hero-copy">
-          <p className="eyebrow">全栈智能实验报告生成系统</p>
-          <h1>上传作业与实验模板，自动生成完整实验报告</h1>
-          <p className="hero-description">
-            React 前端负责交互体验，Go 后端负责上传编排与统一 API，Python Agent 负责文档解析、任务求解与报告生成。
-          </p>
-        </div>
-        <HealthCard health={health} />
-      </section>
+      <WorkspaceHeader health={health} />
 
-      <UploadPanel helperText={helperText} error={error} submitting={submitting} onSubmit={onSubmit} />
+      <UploadPanel
+        error={error}
+        helperText={HELPER_TEXT}
+        modelOptions={modelOptions}
+        onModelChange={setSelectedCodingModel}
+        onSubmit={onSubmit}
+        selectedCodingModel={selectedCodingModel}
+        submitting={submitting}
+      />
 
       <CapabilitiesPanel capabilities={capabilities} />
 

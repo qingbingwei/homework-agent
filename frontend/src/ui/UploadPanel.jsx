@@ -29,7 +29,69 @@ function getErrorMeta(error) {
   return parts.join(" · ");
 }
 
-export function UploadPanel({ helperText, error, submitting, onSubmit }) {
+function ModelSwitch({ modelOptions, selectedCodingModel, onModelChange }) {
+  return (
+    <div className="model-switch" role="radiogroup" aria-label="Coding Agent 模型">
+      {modelOptions.map((option) => (
+        <button
+          aria-checked={selectedCodingModel === option.value}
+          className={`model-option${selectedCodingModel === option.value ? " is-active" : ""}`}
+          key={option.value}
+          onClick={() => onModelChange(option.value)}
+          role="radio"
+          type="button"
+        >
+          <span>{option.label}</span>
+          <small>{option.description}</small>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function UploadGrid({ assignment, template, onAssignmentChange, onTemplateChange }) {
+  return (
+    <div className="upload-grid">
+      <DropzoneField
+        description="请选择 `.docx`、`.pdf` 或 `.md` 文件"
+        file={assignment}
+        id="assignment-file"
+        label="作业文件"
+        onChange={onAssignmentChange}
+      />
+      <DropzoneField
+        description="建议模板预留标题与正文占位符"
+        file={template}
+        id="template-file"
+        label="实验模板"
+        onChange={onTemplateChange}
+      />
+    </div>
+  );
+}
+
+function ErrorBanner({ error }) {
+  if (!error) {
+    return null;
+  }
+  return (
+    <div className="error-banner" role="alert">
+      <strong>{getErrorTitle(error)}</strong>
+      <span>{error.message}</span>
+      {getErrorMeta(error) ? <small>{getErrorMeta(error)}</small> : null}
+    </div>
+  );
+}
+
+export function UploadPanel({
+  helperText,
+  error,
+  submitting,
+  modelOptions,
+  selectedCodingModel,
+  onModelChange,
+  onSubmit,
+}) {
   const [assignment, setAssignment] = useState(null);
   const [template, setTemplate] = useState(null);
 
@@ -51,36 +113,25 @@ export function UploadPanel({ helperText, error, submitting, onSubmit }) {
         </div>
       </div>
 
-      <form className="upload-grid" onSubmit={handleSubmit}>
-        <DropzoneField
-          description="请选择 `.docx`、`.pdf` 或 `.md` 文件"
-          file={assignment}
-          id="assignment-file"
-          label="作业文件"
-          onChange={setAssignment}
+      <form className="upload-form" onSubmit={handleSubmit}>
+        <ModelSwitch
+          modelOptions={modelOptions}
+          onModelChange={onModelChange}
+          selectedCodingModel={selectedCodingModel}
         />
-
-        <DropzoneField
-          description="建议模板预留标题与正文占位符"
-          file={template}
-          id="template-file"
-          label="实验模板"
-          onChange={setTemplate}
+        <UploadGrid
+          assignment={assignment}
+          onAssignmentChange={setAssignment}
+          onTemplateChange={setTemplate}
+          template={template}
         />
-
         <button className="primary-button" disabled={submitting || !assignment || !template} type="submit">
           {submitting ? "生成中..." : "生成实验报告"}
         </button>
       </form>
 
       <p className="helper-text">{helperText}</p>
-      {error ? (
-        <div className="error-banner" role="alert">
-          <strong>{getErrorTitle(error)}</strong>
-          <span>{error.message}</span>
-          {getErrorMeta(error) ? <small>{getErrorMeta(error)}</small> : null}
-        </div>
-      ) : null}
+      <ErrorBanner error={error} />
     </section>
   );
 }

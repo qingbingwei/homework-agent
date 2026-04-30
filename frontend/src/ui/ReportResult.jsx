@@ -23,10 +23,10 @@ export function ReportResult({ report, onDownloadMarkdown, onDownloadDocx }) {
       <div className="chip-row">
         <span>模板策略：{report.template_strategy}</span>
         <span>模型：{report.model}</span>
+        <span>Coding：{report.coding_model_profile || "gpt"} / {report.coding_model || "unknown"}</span>
       </div>
 
       <pre className="preview-card">{report.markdown_content}</pre>
     </section>
   );
 }
-
