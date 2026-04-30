@@ -10,9 +10,11 @@ import (
 	transporthttp "github.com/qingbingwei/homework-agent/backend/internal/transporthttp"
 )
 
+const agentClientTimeout = 10 * time.Minute
+
 func main() {
 	cfg := config.Load()
-	client := agent.NewClient(cfg.AgentServiceURL, &http.Client{Timeout: 180 * time.Second})
+	client := agent.NewClient(cfg.AgentServiceURL, &http.Client{Timeout: agentClientTimeout})
 	handler := transporthttp.NewHandler(client, cfg)
 
 	server := &http.Server{
@@ -24,4 +26,3 @@ func main() {
 	log.Printf("backend listening on http://localhost:%s", cfg.Port)
 	log.Fatal(server.ListenAndServe())
 }
-
