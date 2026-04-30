@@ -1,5 +1,0 @@
-id,task,status,acceptance_criteria,validation_command,completed_at,retry_count,notes
-1,Design safe traversal script,DONE,Script contract supports dry-run execute and push modes,test -f scripts/rewrite-git-email.sh,2026-04-30,0,
-2,Implement filter-branch wrapper,DONE,Script contains env-filter author and committer rewrite,rg "filter-branch|GIT_AUTHOR_EMAIL|GIT_COMMITTER_EMAIL" scripts/rewrite-git-email.sh,2026-04-30,0,
-3,Validate non-destructive behavior,DONE,Help and dry-run checks work without rewriting,bash scripts/rewrite-git-email.sh --help,2026-04-30,0,
-4,Record completion,DONE,Progress log updated,test -f .codex-tasks/20260430-rewrite-git-email/PROGRESS.md,2026-04-30,0,
