@@ -6,6 +6,7 @@ const initialHealth = {
   status: "loading",
   message: "检查中...",
   meta: "正在连接后端与 Agent 服务",
+  timeoutSeconds: 1800,
 };
 
 const initialCapabilities = {
@@ -32,7 +33,8 @@ export function useSystemInfo() {
         setHealth({
           status: payload.status,
           message: payload.status === "ok" ? "服务可用" : "服务异常",
-          meta: `${payload.agent_url} · ${payload.model} · Agent ${payload.agent_status}`,
+          meta: `${payload.agent_url} · ${payload.model} · Agent ${payload.agent_status} · ${formatTimeout(payload.agent_client_timeout_seconds)}`,
+          timeoutSeconds: payload.agent_client_timeout_seconds,
         });
       } catch (error) {
         if (!active) {
@@ -66,4 +68,9 @@ export function useSystemInfo() {
   }, []);
 
   return { health, capabilities };
+}
+
+function formatTimeout(seconds) {
+  if (!seconds) return "timeout unknown";
+  return `timeout ${Math.round(seconds / 60)} min`;
 }
