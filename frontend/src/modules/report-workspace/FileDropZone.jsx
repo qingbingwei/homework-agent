@@ -1,3 +1,6 @@
+import { Button, Chip } from "@heroui/react";
+import { useRef } from "react";
+
 const dragEvents = ["dragenter", "dragover"];
 
 function fileSize(file) {
@@ -5,6 +8,8 @@ function fileSize(file) {
 }
 
 export function FileDropZone({ description, file, id, label, onChange }) {
+  const inputRef = useRef(null);
+
   const handleDrop = (event) => {
     event.preventDefault();
     onChange(event.dataTransfer.files?.[0] ?? null);
@@ -17,9 +22,8 @@ export function FileDropZone({ description, file, id, label, onChange }) {
   };
 
   return (
-    <label
+    <div
       className={`file-dropzone${file ? " is-selected" : ""}`}
-      htmlFor={id}
       onDragEnter={handleDrag}
       onDragOver={handleDrag}
       onDrop={handleDrop}
@@ -27,15 +31,25 @@ export function FileDropZone({ description, file, id, label, onChange }) {
       <input
         accept=".docx,.pdf,.md"
         id={id}
+        ref={inputRef}
         type="file"
         onChange={(event) => onChange(event.target.files?.[0] ?? null)}
       />
-      <span>{label}</span>
-      <strong>{file ? file.name : "点击或拖拽文件到这里"}</strong>
+      <div className="dropzone-top">
+        <span>{label}</span>
+        <Chip size="sm" variant="soft">docx · pdf · md</Chip>
+      </div>
+      <strong>{file ? file.name : "点击或拖拽文件"}</strong>
       <small>{file ? fileSize(file) : description}</small>
-      <span className="file-action">
+      <Button
+        className="file-action"
+        size="sm"
+        type="button"
+        variant="secondary"
+        onPress={() => inputRef.current?.click()}
+      >
         选择文件
-      </span>
-    </label>
+      </Button>
+    </div>
   );
 }

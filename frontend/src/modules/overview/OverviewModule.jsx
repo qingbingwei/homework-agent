@@ -1,4 +1,6 @@
-import { Card, Chip, ProgressBar } from "@heroui/react";
+import { Card, Chip, ProgressBar, Surface } from "@heroui/react";
+
+const pipelineSteps = ["文件识别", "计划生成", "Agent 执行", "报告合成"];
 
 function StatusPill({ health }) {
   const ok = health.status === "ok";
@@ -6,6 +8,28 @@ function StatusPill({ health }) {
     <Chip color={ok ? "success" : "danger"} variant="soft">
       {health.message}
     </Chip>
+  );
+}
+
+function MetricCard({ label, value }) {
+  return (
+    <Surface className="metric-card" variant="secondary">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </Surface>
+  );
+}
+
+function PipelineSteps() {
+  return (
+    <ol className="pipeline-steps">
+      {pipelineSteps.map((step, index) => (
+        <li key={step}>
+          <Chip size="sm" variant="soft">{index + 1}</Chip>
+          <strong>{step}</strong>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -17,28 +41,19 @@ export function OverviewModule({ capabilities, health, selectedCodingModel }) {
     <section className="overview-grid" id="overview">
       <Card className="hero-panel">
         <Card.Header>
-          <div>
+          <div className="hero-copy-block">
             <p className="eyebrow">Document pipeline</p>
             <Card.Title>上传作业、套用模板、生成报告</Card.Title>
             <Card.Description>
-              前端负责交互，Go 后端负责任务编排，Agent 负责解析、推理、代码执行与报告合成。
+              统一处理作业解析、任务计划、代码执行与模板合成。
             </Card.Description>
           </div>
           <StatusPill health={health} />
         </Card.Header>
         <Card.Content className="hero-metrics">
-          <div>
-            <span>当前 Coding Agent</span>
-            <strong>{selectedCodingModel}</strong>
-          </div>
-          <div>
-            <span>支持格式</span>
-            <strong>{formatCount}</strong>
-          </div>
-          <div>
-            <span>模型配置</span>
-            <strong>{modelCount}</strong>
-          </div>
+          <MetricCard label="当前 Coding Agent" value={selectedCodingModel} />
+          <MetricCard label="支持格式" value={formatCount} />
+          <MetricCard label="模型配置" value={modelCount} />
         </Card.Content>
       </Card>
 
@@ -51,10 +66,7 @@ export function OverviewModule({ capabilities, health, selectedCodingModel }) {
         </Card.Header>
         <Card.Content className="pipeline-list">
           <ProgressBar aria-label="生成链路进度" value={75} color="success" />
-          <span>1. 文件上传与格式识别</span>
-          <span>2. plan-write 生成任务计划</span>
-          <span>3. coding-agent 执行任务</span>
-          <span>4. 模板合成 Markdown / DOCX</span>
+          <PipelineSteps />
         </Card.Content>
       </Card>
     </section>

@@ -1,4 +1,4 @@
-import { Card, Chip } from "@heroui/react";
+import { Card, Chip, Surface } from "@heroui/react";
 
 import { formatModelProfile } from "../../lib/modelProfiles";
 
@@ -44,16 +44,18 @@ export function SystemModule({ capabilities, health }) {
         <h2>运行状态与能力边界</h2>
       </div>
       <div className="system-grid">
-        <Card className="module-card">
+        <Card className="module-card system-status-card">
           <Card.Header>
             <Card.Title>服务状态</Card.Title>
             <Card.Description>{health.meta}</Card.Description>
           </Card.Header>
-          <Card.Content className="status-grid">
+          <Card.Content>
+            <Surface className="status-grid" variant="secondary">
             <span>后端状态</span>
             <strong>{health.message}</strong>
             <span>上传限制</span>
             <strong>{formatBytes(capabilities.max_upload_bytes)}</strong>
+            </Surface>
           </Card.Content>
         </Card>
         <Card className="module-card">

@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Spinner } from "@heroui/react";
+import { Alert, Button, Card, Chip, Spinner } from "@heroui/react";
 import { useState } from "react";
 
 import { FileDropZone } from "./FileDropZone";
@@ -74,6 +74,7 @@ function ReportFormCard({ error, onSubmit, submitting }) {
           <Card.Title>上传作业与实验模板</Card.Title>
           <Card.Description>{helperText}</Card.Description>
         </div>
+        <Chip size="sm" variant="soft">2 files required</Chip>
       </Card.Header>
       <Card.Content>
         <form className="report-form" onSubmit={handleSubmit}>
@@ -84,10 +85,13 @@ function ReportFormCard({ error, onSubmit, submitting }) {
             template={template}
           />
           <ErrorNotice error={error} />
-          <Button isDisabled={!canSubmit} type="submit" variant="primary">
-            {submitting ? <Spinner size="sm" /> : null}
-            {submitting ? "生成中，等待 Agent 返回..." : "生成实验报告"}
-          </Button>
+          <div className="submit-row">
+            <span>输出 Markdown 预览与 DOCX 文件</span>
+            <Button isDisabled={!canSubmit} type="submit" variant="primary">
+              {submitting ? <Spinner size="sm" /> : null}
+              {submitting ? "生成中..." : "生成实验报告"}
+            </Button>
+          </div>
         </form>
       </Card.Content>
     </Card>

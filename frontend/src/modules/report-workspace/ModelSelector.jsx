@@ -1,4 +1,4 @@
-import { Card, Radio, RadioGroup } from "@heroui/react";
+import { Card, Chip, Radio, RadioGroup } from "@heroui/react";
 
 export function ModelSelector({ modelOptions, onModelChange, selectedCodingModel }) {
   return (
@@ -20,7 +20,10 @@ export function ModelSelector({ modelOptions, onModelChange, selectedCodingModel
         >
           {modelOptions.map((option) => (
             <Radio key={option.value} value={option.value}>
-              <span>{option.label}</span>
+              <span className="model-option-title">
+                {option.label}
+                <Chip size="sm" variant="soft">{option.value}</Chip>
+              </span>
               <small>{option.description}</small>
             </Radio>
           ))}

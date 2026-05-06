@@ -1,4 +1,4 @@
-import { Button, Card, Chip, ScrollShadow } from "@heroui/react";
+import { Button, Card, Chip, EmptyState, ScrollShadow, Separator } from "@heroui/react";
 
 function ResultChips({ report }) {
   return (
@@ -20,8 +20,11 @@ export function ResultModule({ onDownloadDocx, onDownloadMarkdown, report }) {
       {!report ? (
         <Card className="module-card">
           <Card.Content className="empty-result">
-            <strong>暂无生成结果</strong>
-            <span>完成一次报告生成后，Markdown 预览和 DOCX 下载会显示在这里。</span>
+            <EmptyState className="result-empty-state">
+              <Chip size="sm" variant="soft">MD</Chip>
+              <strong>暂无生成结果</strong>
+              <span>完成一次报告生成后，Markdown 预览和 DOCX 下载会显示在这里。</span>
+            </EmptyState>
           </Card.Content>
         </Card>
       ) : (
@@ -38,7 +41,12 @@ export function ResultModule({ onDownloadDocx, onDownloadMarkdown, report }) {
           </Card.Header>
           <Card.Content>
             <ResultChips report={report} />
+            <Separator className="result-separator" />
             <ScrollShadow className="preview-shell">
+              <div className="preview-toolbar">
+                <span>Markdown Preview</span>
+                <span>{report.markdown_content.length} chars</span>
+              </div>
               <pre>{report.markdown_content}</pre>
             </ScrollShadow>
           </Card.Content>
