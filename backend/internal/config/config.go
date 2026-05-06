@@ -8,7 +8,7 @@ import (
 )
 
 const defaultMaxUploadBytes int64 = 20 << 20
-const defaultAgentClientTimeout = 30 * time.Minute
+const defaultAgentClientTimeout = time.Hour
 const defaultBackendPort = "19080"
 const defaultAgentServiceURL = "http://localhost:19000"
 

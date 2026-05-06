@@ -6,7 +6,7 @@ const initialHealth = {
   status: "loading",
   message: "检查中...",
   meta: "正在连接后端与 Agent 服务",
-  timeoutSeconds: 1800,
+  timeoutSeconds: 3600,
 };
 
 const initialCapabilities = {

@@ -61,7 +61,7 @@ func TestHealthEndpoint(t *testing.T) {
 	if payload["status"] != "ok" {
 		t.Fatalf("unexpected payload: %#v", payload)
 	}
-	if payload["agent_client_timeout_seconds"] != float64(1800) {
+	if payload["agent_client_timeout_seconds"] != float64(3600) {
 		t.Fatalf("unexpected timeout payload: %#v", payload)
 	}
 }

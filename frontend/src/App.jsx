@@ -23,7 +23,7 @@ export default function App() {
   const onSubmit = (files) => reportState.generate(files, selectedCodingModel);
 
   return (
-    <AppShell>
+    <AppShell agentTimeoutSeconds={health.timeoutSeconds}>
       <OverviewModule
         capabilities={capabilities}
         health={health}

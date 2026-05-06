@@ -10,7 +10,7 @@ func TestLoadAgentClientTimeoutDefault(t *testing.T) {
 
 	cfg := Load()
 
-	if cfg.AgentClientTimeout != 30*time.Minute {
+	if cfg.AgentClientTimeout != time.Hour {
 		t.Fatalf("unexpected default timeout: %s", cfg.AgentClientTimeout)
 	}
 }
