@@ -1,5 +1,6 @@
-import { ChatOpenAI } from "@langchain/openai";
+import { ChatOpenAI, type ChatOpenAIFields } from "@langchain/openai";
 import type { AppConfig, CodingChatLlmConfig } from "../config.js";
+import { ReasoningContentChatOpenAICompletions } from "./reasoningContent.js";
 
 export type AgentModelRole = "plan" | "coding";
 
@@ -25,6 +26,15 @@ const codingModelKwargs = (codingConfig: CodingChatLlmConfig): Record<string, un
   return kwargs;
 };
 
+const createReasoningAwareChatModel = (fields: ChatOpenAIFields): ChatOpenAI => (
+  new ChatOpenAI({
+    ...fields,
+    // Deep Agents perform follow-up Chat Completions calls after tool use; thinking-mode
+    // compatible providers require the prior assistant reasoning_content to round-trip.
+    completions: new ReasoningContentChatOpenAICompletions(fields),
+  })
+);
+
 export const createChatModel = (
   config: AppConfig,
   role: AgentModelRole,
@@ -45,7 +55,7 @@ export const createChatModel = (
   };
 
   if (role === "plan") {
-    return new ChatOpenAI({
+    return createReasoningAwareChatModel({
       ...baseConfig,
       modelKwargs: {
         reasoning_effort: config.planLlm.reasoningEffort,
@@ -60,7 +70,7 @@ export const createChatModel = (
 
   const codingConfig = options.codingLlm ?? config.codingLlm;
 
-  return new ChatOpenAI({
+  return createReasoningAwareChatModel({
     ...baseConfig,
     modelKwargs: codingModelKwargs(codingConfig),
   });

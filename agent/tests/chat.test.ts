@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { AIMessage, HumanMessage } from "@langchain/core/messages";
+import { convertMessagesToCompletionsMessageParams } from "@langchain/openai";
 import type { AppConfig, CodingDeepseekLlmConfig, CodingLlmConfig } from "../src/config.js";
 import { createChatModel } from "../src/llm/chat.js";
+import { copyReasoningContentToCompletionMessages } from "../src/llm/reasoningContent.js";
 
 const gptCodingConfig: CodingLlmConfig = {
   provider: "OpenAI",
@@ -76,5 +79,27 @@ describe("createChatModel", () => {
       },
     });
     expect(model.modelKwargs).not.toHaveProperty("store");
+  });
+
+  it("round-trips reasoning_content on assistant Chat Completions messages", () => {
+    const sourceMessages = [
+      new HumanMessage("write a plan"),
+      new AIMessage({
+        content: "I need a tool.",
+        additional_kwargs: { reasoning_content: "private provider reasoning" },
+      }),
+    ];
+    const completionMessages = convertMessagesToCompletionsMessageParams({
+      messages: sourceMessages,
+      model: "deepseek-v4-pro",
+    });
+
+    const patchedMessages = copyReasoningContentToCompletionMessages(sourceMessages, completionMessages);
+
+    expect(completionMessages[1]).not.toHaveProperty("reasoning_content");
+    expect(patchedMessages[1]).toMatchObject({
+      role: "assistant",
+      reasoning_content: "private provider reasoning",
+    });
   });
 });
