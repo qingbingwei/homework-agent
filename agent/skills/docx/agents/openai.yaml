@@ -1,0 +1,4 @@
+interface:
+  display_name: "DOCX"
+  short_description: "Create and edit Word documents"
+  default_prompt: "Use $docx to create or edit a Word document with preserved formatting."
