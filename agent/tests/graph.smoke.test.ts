@@ -40,7 +40,10 @@ vi.mock("../src/llm/chat.js", async () => {
   ];
 
   return {
-    createChatModel: () => new FakeListChatModel({ responses }),
+    createChatModel: () => {
+      const model = new FakeListChatModel({ responses });
+      return Object.assign(model, { bindTools: () => model });
+    },
   };
 });
 

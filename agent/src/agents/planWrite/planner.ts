@@ -1,28 +1,14 @@
-import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { StructuredOutputParser } from "langchain/output_parsers";
-import { z } from "zod";
 import type { ChatOpenAI } from "@langchain/openai";
+import { createDeepAgent } from "deepagents";
 import { TaskPlanSchema, type TaskPlan } from "../schema.js";
 import type { ParsedDocument } from "../../parsing/index.js";
+import { asDeepAgentModel, extractFinalMessageText, extractJsonObject } from "../deepAgent.js";
 
-const planParser = StructuredOutputParser.fromZodSchema(
-  z.object({
-    title: TaskPlanSchema.shape.title,
-    summary: TaskPlanSchema.shape.summary,
-    tasks: TaskPlanSchema.shape.tasks,
-  }),
-);
-
-const planPrompt = ChatPromptTemplate.fromMessages([
-  [
-    "system",
-    "You are the plan-write controller of a lab-report agent. Decompose the assignment into ordered sub-tasks that the coding-agent can execute. Each task must state an unambiguous acceptance criterion. Return ONLY the JSON described below.\n{format_instructions}",
-  ],
-  [
-    "human",
-    `Assignment ({assignment_kind}):\n---\n{assignment_text}\n---\n\nTemplate ({template_kind}):\n---\n{template_text}\n---\n\nOutput JSON only.`,
-  ],
-]);
+const SYSTEM_PROMPT = `You are the planning arm of a lab-report agent.
+Decompose the assignment into ordered sub-tasks that the coding Deep Agent can execute.
+Each task must state an unambiguous acceptance criterion.
+Return ONLY a JSON object with this shape:
+{"title":"...","summary":"...","tasks":[{"id":"...","title":"...","description":"...","requires_code":true,"language":"python|node|none","acceptance":"..."}]}.`;
 
 export const planAssignment = async (
   llm: ChatOpenAI,
@@ -30,16 +16,21 @@ export const planAssignment = async (
   template: ParsedDocument,
   runnableConfig: Record<string, unknown>,
 ): Promise<TaskPlan> => {
-  const chain = planPrompt.pipe(llm).pipe(planParser);
-  const response = await chain.invoke(
-    {
-      assignment_kind: assignment.kind,
-      assignment_text: assignment.text,
-      template_kind: template.kind,
-      template_text: template.text,
-      format_instructions: planParser.getFormatInstructions(),
-    },
-    runnableConfig,
+  const agent = createDeepAgent({
+    model: asDeepAgentModel(llm),
+    name: "plan-write-planner",
+    systemPrompt: SYSTEM_PROMPT,
+  });
+  const invocation = await agent.invoke(
+    { messages: [{ role: "user", content: buildPlanningMessage(assignment, template) }] } as never,
+    { ...runnableConfig, recursionLimit: 20 } as never,
   );
-  return TaskPlanSchema.parse(response);
+  const jsonText = extractJsonObject(extractFinalMessageText(invocation));
+  if (!jsonText) throw new Error("plan-write planner did not return JSON");
+  return TaskPlanSchema.parse(JSON.parse(jsonText));
 };
+
+const buildPlanningMessage = (assignment: ParsedDocument, template: ParsedDocument): string => (
+  `Assignment (${assignment.kind}):\n---\n${assignment.text}\n---\n\n` +
+  `Template (${template.kind}):\n---\n${template.text}\n---\n\nOutput JSON only.`
+);

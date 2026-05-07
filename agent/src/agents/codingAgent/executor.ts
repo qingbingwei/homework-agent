@@ -1,14 +1,15 @@
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { ChatOpenAI } from "@langchain/openai";
+import { createDeepAgent } from "deepagents";
 import type { ParsedDocument } from "../../parsing/index.js";
 import { createSandbox } from "./sandbox.js";
-import { buildCodingTools } from "./tools.js";
+import { CodingSandboxBackend } from "./deepSandbox.js";
 import { TaskResultSchema, type Task, type TaskResult } from "../schema.js";
+import { asDeepAgentModel, extractFinalMessageText, extractJsonObject } from "../deepAgent.js";
 
-const SYSTEM_PROMPT = `You are the coding-agent inside a homework-report pipeline.
+const SYSTEM_PROMPT = `You are the coding Deep Agent inside a homework-report pipeline.
 - Work strictly inside the sandbox (relative paths only).
-- Use write_file/read_file for files, run_python/run_node/run_shell for execution.
+- Use write_file/read_file/edit_file for files and execute for simple allow-listed commands.
+- Prefer python3 or node through execute when code is needed.
 - When finished, reply ONLY with the final JSON matching the TaskResult schema:
   {"task_id":"...","status":"completed|partial|failed","explanation":"...","code":"...","language":"python|node|none","stdout":"...","stderr":"...","artifacts":["..."]}.
 - Prefer executing code to verify outputs before reporting.
@@ -28,12 +29,6 @@ const buildTaskMessage = (task: Task, assignment: ParsedDocument, template: Pars
   return `Execute the following task and return the JSON only:\n${JSON.stringify(payload, null, 2)}`;
 };
 
-const extractJson = (text: string): string | null => {
-  const trimmed = text.trim();
-  const match = trimmed.match(/\{[\s\S]*\}\s*$/);
-  return match ? match[0] : null;
-};
-
 export const runCodingAgent = async (
   llm: ChatOpenAI,
   task: Task,
@@ -44,27 +39,19 @@ export const runCodingAgent = async (
 ): Promise<TaskResult> => {
   const sandbox = await createSandbox(requestId, task.id);
   try {
-    const tools = buildCodingTools(sandbox);
-    const agent = createReactAgent({
-      llm,
-      tools: [tools.writeFile, tools.readFile, tools.runShell, tools.runPython, tools.runNode],
+    const agent = createDeepAgent({
+      model: asDeepAgentModel(llm),
+      name: "coding-agent",
+      systemPrompt: SYSTEM_PROMPT,
+      backend: new CodingSandboxBackend(sandbox),
     });
 
     const invocation = await agent.invoke(
-      {
-        messages: [
-          new SystemMessage(SYSTEM_PROMPT),
-          new HumanMessage(buildTaskMessage(task, assignment, template)),
-        ],
-      },
-      { ...runnableConfig, recursionLimit: 12 },
+      { messages: [{ role: "user", content: buildTaskMessage(task, assignment, template) }] } as never,
+      { ...runnableConfig, recursionLimit: 30 } as never,
     );
-
-    const finalMessage = invocation.messages[invocation.messages.length - 1];
-    const content = typeof finalMessage?.content === "string"
-      ? finalMessage.content
-      : JSON.stringify(finalMessage?.content ?? "");
-    const jsonText = extractJson(content);
+    const content = extractFinalMessageText(invocation);
+    const jsonText = extractJsonObject(content);
     if (!jsonText) {
       return {
         task_id: task.id,

@@ -110,9 +110,9 @@ export const buildGraph = (deps: GraphDependencies) => {
 export const runGraph = async (deps: GraphDependencies, input: GraphInput): Promise<GraphState> => {
   const graph = buildGraph(deps);
   const initial = initialGraphState(input);
-  const final = (await graph.invoke(initial, {
+  const final = await graph.invoke(initial as never, {
     recursionLimit: 20,
     configurable: { request_id: input.requestId },
-  })) as GraphState;
-  return final;
+  });
+  return final as unknown as GraphState;
 };
