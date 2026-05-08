@@ -1,16 +1,23 @@
 import { basename, extname } from "node:path";
-import { selectCodingLlmConfig, type AppConfig, type CodingModelProfile } from "../config.js";
+import {
+  selectCodingLlmConfig,
+  type AppConfig,
+  type CodingModelProfile,
+  type DeepseekReasoningEffort,
+  type DeepseekThinkingType,
+} from "../config.js";
 import { createChatModel } from "../llm/chat.js";
 import { runGraph } from "../agents/graph.js";
 import { parseUpload } from "../parsing/index.js";
-import { buildReportBundle } from "../templates/index.js";
 import { AgentError } from "../http/errors.js";
 
 export interface ReportInput {
   assignment: { filename: string; data: Buffer };
-  template: { filename: string; data: Buffer };
+  template?: { filename: string; data: Buffer } | null;
   requestId: string;
   codingModelProfile: CodingModelProfile;
+  codingReasoningEffort?: DeepseekReasoningEffort;
+  codingThinkingType?: DeepseekThinkingType;
 }
 
 export interface ReportResponse {
@@ -21,7 +28,21 @@ export interface ReportResponse {
   model: string;
   coding_model_profile: CodingModelProfile;
   coding_model: string;
+  coding_reasoning_effort: string;
+  coding_thinking_type: string;
 }
+
+export interface ReportServiceDeps {
+  parseUpload: typeof parseUpload;
+  createChatModel: typeof createChatModel;
+  runGraph: typeof runGraph;
+}
+
+const defaultDeps: ReportServiceDeps = {
+  parseUpload,
+  createChatModel,
+  runGraph,
+};
 
 const stripExt = (filename: string): string => {
   const base = basename(filename);
@@ -32,19 +53,26 @@ const stripExt = (filename: string): string => {
 export const runReportService = async (
   config: AppConfig,
   input: ReportInput,
+  deps: Partial<ReportServiceDeps> = {},
 ): Promise<ReportResponse> => {
-  const assignment = await parseUpload(input.assignment.filename, input.assignment.data);
-  const template = await parseUpload(input.template.filename, input.template.data);
-  const codingConfig = selectCodingLlmConfig(config, input.codingModelProfile);
+  const providers = { ...defaultDeps, ...deps };
+  const assignment = await providers.parseUpload(input.assignment.filename, input.assignment.data);
+  const template = input.template ? await providers.parseUpload(input.template.filename, input.template.data) : null;
+  const codingConfig = selectCodingLlmConfig(
+    config,
+    input.codingModelProfile,
+    input.codingReasoningEffort,
+    input.codingThinkingType,
+  );
 
-  const planWriteModel = createChatModel(config, "plan", { tags: ["plan-write"], temperature: 0.2 });
-  const codingModel = createChatModel(config, "coding", {
+  const planWriteModel = providers.createChatModel(config, "plan", { tags: ["plan-write"], temperature: 0.2 });
+  const codingModel = providers.createChatModel(config, "coding", {
     tags: ["coding-agent", `coding-profile:${input.codingModelProfile}`],
     temperature: 0.1,
     codingLlm: codingConfig,
   });
 
-  const finalState = await runGraph(
+  const finalState = await providers.runGraph(
     { config, planWriteModel, codingModel },
     {
       requestId: input.requestId,
@@ -62,16 +90,16 @@ export const runReportService = async (
     });
   }
 
-  const rendered = await buildReportBundle(template, finalState.writer.markdown, finalState.writer.title);
-
   const stem = stripExt(assignment.filename) || "report";
   return {
     file_name: `${stem}-report.docx`,
-    markdown_content: rendered.markdownContent,
-    docx_base64: rendered.docxBytes.toString("base64"),
-    template_strategy: rendered.templateStrategy,
+    markdown_content: finalState.writer.markdownPreview,
+    docx_base64: finalState.writer.docxBytes.toString("base64"),
+    template_strategy: finalState.writer.templateStrategy,
     model: config.planLlm.model,
     coding_model_profile: input.codingModelProfile,
     coding_model: codingConfig.model,
+    coding_reasoning_effort: codingConfig.reasoningEffort,
+    coding_thinking_type: codingConfig.thinkingType,
   };
 };

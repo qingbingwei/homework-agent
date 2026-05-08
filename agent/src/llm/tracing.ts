@@ -1,3 +1,4 @@
+import type { RunnableConfig } from "@langchain/core/runnables";
 import type { AppConfig } from "../config.js";
 import { rootLogger } from "../logger.js";
 
@@ -33,7 +34,7 @@ export const buildRunnableConfig = (
   config: AppConfig,
   requestId: string,
   options: TracingOptions = {},
-) => {
+): RunnableConfig => {
   ensureTracingEnv(config);
   return {
     runName: options.runName ?? "homework-agent",

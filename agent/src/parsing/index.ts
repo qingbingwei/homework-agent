@@ -2,6 +2,7 @@ import JSZip from "jszip";
 import pdfParse from "pdf-parse";
 import { extname } from "node:path";
 import { AgentError } from "../http/errors.js";
+import { decodeXmlEntities } from "../utils/xml.js";
 
 export type DocumentKind = ".docx" | ".pdf" | ".md";
 
@@ -77,20 +78,3 @@ export const extractTextFromDocumentXml = (xml: string): string => {
   }
   return paragraphs.join("\n");
 };
-
-const xmlEntities: Record<string, string> = {
-  "&amp;": "&",
-  "&lt;": "<",
-  "&gt;": ">",
-  "&quot;": '"',
-  "&apos;": "'",
-};
-
-const decodeXmlEntities = (value: string): string =>
-  value.replace(/&(amp|lt|gt|quot|apos|#\d+);/g, (match, group: string) => {
-    if (match.startsWith("&#")) {
-      const code = Number(group.slice(1));
-      return Number.isFinite(code) ? String.fromCodePoint(code) : match;
-    }
-    return xmlEntities[match] ?? match;
-  });

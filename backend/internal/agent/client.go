@@ -20,9 +20,11 @@ type FilePayload struct {
 }
 
 type GenerateReportRequest struct {
-	Assignment         FilePayload
-	Template           FilePayload
-	CodingModelProfile string
+	Assignment            FilePayload
+	Template              FilePayload
+	CodingModelProfile    string
+	CodingReasoningEffort string
+	CodingThinkingType    string
 }
 
 type Client struct {
@@ -76,6 +78,16 @@ func (c *Client) GenerateReport(ctx context.Context, payload GenerateReportReque
 	}
 	if err := writer.WriteField("coding_model_profile", payload.CodingModelProfile); err != nil {
 		return result, err
+	}
+	if payload.CodingReasoningEffort != "" {
+		if err := writer.WriteField("coding_reasoning_effort", payload.CodingReasoningEffort); err != nil {
+			return result, err
+		}
+	}
+	if payload.CodingThinkingType != "" {
+		if err := writer.WriteField("coding_thinking_type", payload.CodingThinkingType); err != nil {
+			return result, err
+		}
 	}
 	if err := writer.Close(); err != nil {
 		return result, fmt.Errorf("close multipart writer: %w", err)

@@ -5,6 +5,7 @@ import { rootLogger } from "./logger.js";
 import { registerRequestId } from "./http/requestId.js";
 import { registerErrorHandler } from "./http/errorHandler.js";
 import { registerRoutes } from "./routes.js";
+import { runStartupChecks } from "./healthcheck.js";
 
 const bootstrap = async () => {
   const config = loadConfig();
@@ -22,6 +23,7 @@ const bootstrap = async () => {
 
   registerRequestId(app);
   registerErrorHandler(app);
+  await runStartupChecks();
   await registerRoutes(app, config);
 
   try {

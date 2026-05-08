@@ -35,11 +35,16 @@ export interface DeepseekLlmConfig {
 
 export interface PlanLlmConfig extends DeepseekLlmConfig {}
 
-export interface CodingDeepseekLlmConfig extends DeepseekLlmConfig {}
+export interface CodingDeepseekLlmConfig extends DeepseekLlmConfig {
+  kind: "deepseek";
+}
 
 export type CodingModelProfile = "gpt" | "deepseek";
+export type DeepseekReasoningEffort = DeepseekLlmConfig["reasoningEffort"];
+export type DeepseekThinkingType = DeepseekLlmConfig["thinkingType"];
 
 export interface CodingLlmConfig {
+  kind: "gpt";
   provider: string;
   baseUrl: string;
   apiKey: string;
@@ -59,9 +64,13 @@ export interface CodingLlmConfig {
 export type CodingChatLlmConfig = CodingLlmConfig | CodingDeepseekLlmConfig;
 
 export const codingModelProfiles: readonly CodingModelProfile[] = ["gpt", "deepseek"];
+export const deepseekCodingReasoningEfforts = ["high", "max"] as const;
+export const deepseekCodingThinkingTypes = ["enabled", "disabled"] as const;
 const planReasoningEfforts = ["high", "max"] as const;
 const gptCodingReasoningEfforts = ["low", "medium", "high", "xhigh"] as const;
-const deepseekCodingReasoningEfforts = ["high", "max"] as const;
+const DEFAULT_GPT_CODING_REASONING_EFFORT: CodingLlmConfig["reasoningEffort"] = "xhigh";
+const DEFAULT_DEEPSEEK_CODING_REASONING_EFFORT: DeepseekReasoningEffort = "max";
+const DEFAULT_DEEPSEEK_CODING_THINKING_TYPE: DeepseekThinkingType = "enabled";
 
 const required = (key: string, fallback?: string): string => {
   const value = process.env[key];
@@ -97,10 +106,43 @@ export const normalizeCodingModelProfile = (value: string | undefined): CodingMo
   throw new Error(`unsupported coding model profile: ${value}`);
 };
 
+export const normalizeDeepseekReasoningEffort = (
+  value: string | undefined,
+): DeepseekReasoningEffort | undefined => {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (!normalized) return undefined;
+  if ((deepseekCodingReasoningEfforts as readonly string[]).includes(normalized)) {
+    return normalized as DeepseekReasoningEffort;
+  }
+  throw new Error(`unsupported deepseek reasoning effort: ${value}; expected high or max`);
+};
+
+export const normalizeDeepseekThinkingType = (
+  value: string | undefined,
+): DeepseekThinkingType | undefined => {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (!normalized) return undefined;
+  if ((deepseekCodingThinkingTypes as readonly string[]).includes(normalized)) {
+    return normalized as DeepseekThinkingType;
+  }
+  throw new Error(`unsupported deepseek thinking type: ${value}; expected enabled or disabled`);
+};
+
 export const selectCodingLlmConfig = (
   config: AppConfig,
   profile: CodingModelProfile,
-): CodingChatLlmConfig => (profile === "deepseek" ? config.codingDeepseekLlm : config.codingLlm);
+  reasoningEffort?: DeepseekReasoningEffort,
+  thinkingType?: DeepseekThinkingType,
+): CodingChatLlmConfig => {
+  if (profile === "deepseek") {
+    return {
+      ...config.codingDeepseekLlm,
+      reasoningEffort: reasoningEffort ?? config.codingDeepseekLlm.reasoningEffort,
+      thinkingType: thinkingType ?? config.codingDeepseekLlm.thinkingType,
+    };
+  }
+  return { ...config.codingLlm, reasoningEffort: DEFAULT_GPT_CODING_REASONING_EFFORT };
+};
 
 const loadPlanLlmConfig = (): PlanLlmConfig => ({
   baseUrl: required("PLAN_LLM_BASE_URL", "https://api.deepseek.com/v1"),
@@ -111,12 +153,13 @@ const loadPlanLlmConfig = (): PlanLlmConfig => ({
 });
 
 const loadCodingLlmConfig = (): CodingLlmConfig => ({
+  kind: "gpt",
   provider: required("CODING_LLM_MODEL_PROVIDER", "OpenAI"),
   baseUrl: required("CODING_LLM_BASE_URL", "https://api.asxs.top/v1"),
   apiKey: required("CODING_LLM_API_KEY", ""),
   model: required("CODING_LLM_MODEL", "gpt-5.5"),
   reviewModel: required("CODING_LLM_REVIEW_MODEL", required("CODING_LLM_MODEL", "gpt-5.5")),
-  reasoningEffort: enumValue("CODING_LLM_REASONING_EFFORT", "xhigh", gptCodingReasoningEfforts),
+  reasoningEffort: enumValue("CODING_LLM_REASONING_EFFORT", DEFAULT_GPT_CODING_REASONING_EFFORT, gptCodingReasoningEfforts),
   thinkingType: required("CODING_LLM_THINKING_TYPE", "enabled") as CodingLlmConfig["thinkingType"],
   disableResponseStorage: booleanFlag("CODING_LLM_DISABLE_RESPONSE_STORAGE", true),
   networkAccess: required("CODING_LLM_NETWORK_ACCESS", "enabled") as CodingLlmConfig["networkAccess"],
@@ -128,11 +171,20 @@ const loadCodingLlmConfig = (): CodingLlmConfig => ({
 });
 
 const loadCodingDeepseekLlmConfig = (): CodingDeepseekLlmConfig => ({
+  kind: "deepseek",
   baseUrl: required(prefixed("CODING_DEEPSEEK_LLM", "BASE_URL"), "https://api.deepseek.com/v1"),
   apiKey: required(prefixed("CODING_DEEPSEEK_LLM", "API_KEY"), ""),
   model: required(prefixed("CODING_DEEPSEEK_LLM", "MODEL"), "deepseek-v4-pro"),
-  reasoningEffort: enumValue(prefixed("CODING_DEEPSEEK_LLM", "REASONING_EFFORT"), "max", deepseekCodingReasoningEfforts),
-  thinkingType: required(prefixed("CODING_DEEPSEEK_LLM", "THINKING_TYPE"), "enabled") as CodingDeepseekLlmConfig["thinkingType"],
+  reasoningEffort: enumValue(
+    prefixed("CODING_DEEPSEEK_LLM", "REASONING_EFFORT"),
+    DEFAULT_DEEPSEEK_CODING_REASONING_EFFORT,
+    deepseekCodingReasoningEfforts,
+  ),
+  thinkingType: enumValue(
+    prefixed("CODING_DEEPSEEK_LLM", "THINKING_TYPE"),
+    DEFAULT_DEEPSEEK_CODING_THINKING_TYPE,
+    deepseekCodingThinkingTypes,
+  ),
 });
 
 export const loadConfig = (): AppConfig => {

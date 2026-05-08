@@ -1,11 +1,16 @@
 import { z } from "zod";
 
+const LanguageSchema = z.preprocess(
+  (value) => (value === "none" ? undefined : value),
+  z.enum(["python", "node"]).optional(),
+);
+
 export const TaskSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   description: z.string().min(1),
   requires_code: z.boolean().default(false),
-  language: z.enum(["python", "node", "none"]).default("none"),
+  language: LanguageSchema,
   acceptance: z.string().min(1),
 });
 
@@ -23,10 +28,19 @@ export const TaskResultSchema = z.object({
   status: z.enum(["completed", "partial", "failed"]),
   explanation: z.string().min(1),
   code: z.string().default(""),
-  language: z.enum(["python", "node", "none"]).default("none"),
+  language: LanguageSchema,
   stdout: z.string().default(""),
   stderr: z.string().default(""),
   artifacts: z.array(z.string()).default([]),
 });
 
 export type TaskResult = z.infer<typeof TaskResultSchema>;
+
+export type WriterTemplateStrategy = "deep-agent-docx-template" | "deep-agent-docx-generated";
+
+export interface WriterOutput {
+  title: string;
+  docxBytes: Buffer;
+  markdownPreview: string;
+  templateStrategy: WriterTemplateStrategy;
+}

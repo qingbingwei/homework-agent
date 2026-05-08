@@ -19,13 +19,15 @@ type failingAgentService struct{}
 
 func (fakeAgentService) GenerateReport(_ context.Context, request agent.GenerateReportRequest) (report.Result, error) {
 	return report.Result{
-		FileName:           request.Assignment.Name + "-report.docx",
-		MarkdownContent:    "# report\n\ncontent",
-		DocxBase64:         "Zm9v",
-		TemplateStrategy:   request.Template.Name,
-		Model:              "gpt-5.5",
-		CodingModelProfile: request.CodingModelProfile,
-		CodingModel:        "deepseek-v4-pro",
+		FileName:              request.Assignment.Name + "-report.docx",
+		MarkdownContent:       "# report\n\ncontent",
+		DocxBase64:            "Zm9v",
+		TemplateStrategy:      request.Template.Name,
+		Model:                 "gpt-5.5",
+		CodingModelProfile:    request.CodingModelProfile,
+		CodingModel:           "deepseek-v4-pro",
+		CodingReasoningEffort: request.CodingReasoningEffort,
+		CodingThinkingType:    request.CodingThinkingType,
 	}, nil
 }
 
@@ -99,6 +101,12 @@ func TestGenerateReportEndpoint(t *testing.T) {
 	if err := writer.WriteField("coding_model_profile", "deepseek"); err != nil {
 		t.Fatalf("write field: %v", err)
 	}
+	if err := writer.WriteField("coding_reasoning_effort", "high"); err != nil {
+		t.Fatalf("write field: %v", err)
+	}
+	if err := writer.WriteField("coding_thinking_type", "disabled"); err != nil {
+		t.Fatalf("write field: %v", err)
+	}
 	if err := writer.Close(); err != nil {
 		t.Fatalf("close writer: %v", err)
 	}
@@ -122,6 +130,12 @@ func TestGenerateReportEndpoint(t *testing.T) {
 	}
 	if payload.CodingModelProfile != "deepseek" {
 		t.Fatalf("unexpected coding model profile: %#v", payload)
+	}
+	if payload.CodingReasoningEffort != "high" {
+		t.Fatalf("unexpected coding reasoning effort: %#v", payload)
+	}
+	if payload.CodingThinkingType != "disabled" {
+		t.Fatalf("unexpected coding thinking type: %#v", payload)
 	}
 }
 

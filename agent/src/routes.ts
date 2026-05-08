@@ -1,5 +1,14 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { codingModelProfiles, normalizeCodingModelProfile, type AppConfig } from "./config.js";
+import {
+  codingModelProfiles,
+  deepseekCodingReasoningEfforts,
+  deepseekCodingThinkingTypes,
+  normalizeCodingModelProfile,
+  normalizeDeepseekReasoningEffort,
+  normalizeDeepseekThinkingType,
+  type AppConfig,
+  type CodingModelProfile,
+} from "./config.js";
 import { runReportService } from "./reporting/service.js";
 import { AgentError } from "./http/errors.js";
 
@@ -7,13 +16,25 @@ interface UploadSlots {
   assignment: { filename: string; data: Buffer } | null;
   template: { filename: string; data: Buffer } | null;
   codingModelProfile: string;
+  codingReasoningEffort: string;
+  codingThinkingType: string;
 }
 
 const readUploads = async (request: FastifyRequest): Promise<UploadSlots> => {
-  const slots: UploadSlots = { assignment: null, template: null, codingModelProfile: "gpt" };
+  const slots: UploadSlots = {
+    assignment: null,
+    template: null,
+    codingModelProfile: "gpt",
+    codingReasoningEffort: "",
+    codingThinkingType: "",
+  };
   for await (const part of request.parts()) {
     if (part.type !== "file") {
       if (part.fieldname === "coding_model_profile") slots.codingModelProfile = String(part.value ?? "");
+      if (part.fieldname === "coding_reasoning_effort") {
+        slots.codingReasoningEffort = String(part.value ?? "");
+      }
+      if (part.fieldname === "coding_thinking_type") slots.codingThinkingType = String(part.value ?? "");
       continue;
     }
     if (part.fieldname !== "assignment" && part.fieldname !== "template") continue;
@@ -23,12 +44,38 @@ const readUploads = async (request: FastifyRequest): Promise<UploadSlots> => {
   return slots;
 };
 
-const readCodingModelProfile = (value: string) => {
+const readCodingModelProfile = (value: string): CodingModelProfile => {
   try {
     return normalizeCodingModelProfile(value);
   } catch (err) {
     throw new AgentError({
       code: "invalid_coding_model_profile",
+      message: (err as Error).message,
+      stage: "request_handling",
+      statusCode: 400,
+    });
+  }
+};
+
+const readCodingReasoningEffort = (profile: CodingModelProfile, value: string) => {
+  try {
+    return profile === "deepseek" ? normalizeDeepseekReasoningEffort(value) : undefined;
+  } catch (err) {
+    throw new AgentError({
+      code: "invalid_coding_reasoning_effort",
+      message: (err as Error).message,
+      stage: "request_handling",
+      statusCode: 400,
+    });
+  }
+};
+
+const readCodingThinkingType = (profile: CodingModelProfile, value: string) => {
+  try {
+    return profile === "deepseek" ? normalizeDeepseekThinkingType(value) : undefined;
+  } catch (err) {
+    throw new AgentError({
+      code: "invalid_coding_thinking_type",
       message: (err as Error).message,
       stage: "request_handling",
       statusCode: 400,
@@ -56,7 +103,11 @@ export const registerRoutes = async (app: FastifyInstance, config: AppConfig) =>
     coding_model_context_window: config.codingLlm.contextWindow,
     coding_model_auto_compact_token_limit: config.codingLlm.autoCompactTokenLimit,
     coding_model_profiles: codingModelProfiles,
+    coding_deepseek_reasoning_efforts: deepseekCodingReasoningEfforts,
+    coding_deepseek_thinking_types: deepseekCodingThinkingTypes,
     coding_deepseek_model: config.codingDeepseekLlm.model,
+    coding_deepseek_reasoning_effort: config.codingDeepseekLlm.reasoningEffort,
+    coding_deepseek_thinking_type: config.codingDeepseekLlm.thinkingType,
     coding_deepseek_key_configured: Boolean(config.codingDeepseekLlm.apiKey),
     agent_key_configured: Boolean(config.planLlm.apiKey && config.codingLlm.apiKey),
   }));
@@ -80,20 +131,14 @@ export const registerRoutes = async (app: FastifyInstance, config: AppConfig) =>
         statusCode: 400,
       });
     }
-    if (!slots.template) {
-      throw new AgentError({
-        code: "missing_template",
-        message: "template file is required",
-        stage: "request_handling",
-        statusCode: 400,
-      });
-    }
-
+    const codingModelProfile = readCodingModelProfile(slots.codingModelProfile);
     const payload = await runReportService(config, {
       assignment: slots.assignment,
       template: slots.template,
       requestId: request.requestId,
-      codingModelProfile: readCodingModelProfile(slots.codingModelProfile),
+      codingModelProfile,
+      codingReasoningEffort: readCodingReasoningEffort(codingModelProfile, slots.codingReasoningEffort),
+      codingThinkingType: readCodingThinkingType(codingModelProfile, slots.codingThinkingType),
     });
     reply.header("Content-Type", "application/json").send(payload);
   });

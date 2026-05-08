@@ -14,6 +14,8 @@ const initialCapabilities = {
   template_modes: [],
   docx_placeholders: [],
   coding_model_profiles: [],
+  coding_reasoning_efforts: { deepseek: ["high", "max"] },
+  coding_thinking_types: { deepseek: ["enabled", "disabled"] },
   max_upload_bytes: 0,
 };
 

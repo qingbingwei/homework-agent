@@ -6,6 +6,7 @@ import { createChatModel } from "../src/llm/chat.js";
 import { copyReasoningContentToCompletionMessages } from "../src/llm/reasoningContent.js";
 
 const gptCodingConfig: CodingLlmConfig = {
+  kind: "gpt",
   provider: "OpenAI",
   baseUrl: "https://example.invalid/v1",
   apiKey: "sk-coding",
@@ -23,6 +24,7 @@ const gptCodingConfig: CodingLlmConfig = {
 };
 
 const deepseekCodingConfig: CodingDeepseekLlmConfig = {
+  kind: "deepseek",
   baseUrl: "https://example.invalid/v1",
   apiKey: "sk-deepseek",
   model: "deepseek-v4-pro",

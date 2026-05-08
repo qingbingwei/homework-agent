@@ -14,13 +14,20 @@ export default function App() {
   const reportState = useReportWorkflow();
   const { health, capabilities } = useSystemInfo();
   const [selectedCodingModel, setSelectedCodingModel] = useState("gpt");
+  const [selectedCodingReasoningEffort, setSelectedCodingReasoningEffort] = useState("max");
+  const [selectedCodingThinkingType, setSelectedCodingThinkingType] = useState("enabled");
 
   const modelOptions = useMemo(
     () => buildModelOptions(capabilities.coding_model_profiles),
     [capabilities.coding_model_profiles],
   );
 
-  const onSubmit = (files) => reportState.generate(files, selectedCodingModel);
+  const onSubmit = (files) => reportState.generate(
+    files,
+    selectedCodingModel,
+    selectedCodingReasoningEffort,
+    selectedCodingThinkingType,
+  );
 
   return (
     <AppShell agentTimeoutSeconds={health.timeoutSeconds}>
@@ -33,8 +40,13 @@ export default function App() {
         error={reportState.error}
         modelOptions={modelOptions}
         onModelChange={setSelectedCodingModel}
+        onReasoningChange={setSelectedCodingReasoningEffort}
+        onThinkingChange={setSelectedCodingThinkingType}
         onSubmit={onSubmit}
+        reasoningOptions={capabilities.coding_reasoning_efforts?.deepseek ?? ["high", "max"]}
+        selectedCodingReasoningEffort={selectedCodingReasoningEffort}
         selectedCodingModel={selectedCodingModel}
+        selectedCodingThinkingType={selectedCodingThinkingType}
         submitting={reportState.submitting}
       />
       <SystemModule capabilities={capabilities} health={health} />
@@ -52,11 +64,21 @@ function useReportWorkflow() {
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const generate = async (files, selectedCodingModel) => {
+  const generate = async (
+    files,
+    selectedCodingModel,
+    selectedCodingReasoningEffort,
+    selectedCodingThinkingType,
+  ) => {
     setSubmitting(true);
     setError(null);
     try {
-      const payload = await generateReport({ ...files, codingModelProfile: selectedCodingModel });
+      const payload = await generateReport({
+        ...files,
+        codingModelProfile: selectedCodingModel,
+        codingReasoningEffort: selectedCodingReasoningEffort,
+        codingThinkingType: selectedCodingThinkingType,
+      });
       setReport(payload);
     } catch (submitError) {
       setError({

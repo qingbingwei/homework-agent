@@ -20,7 +20,7 @@ const codingModelKwargs = (codingConfig: CodingChatLlmConfig): Record<string, un
       },
     },
   };
-  if ("requiresOpenAIAuth" in codingConfig && codingConfig.requiresOpenAIAuth) {
+  if (codingConfig.kind === "gpt" && codingConfig.requiresOpenAIAuth) {
     kwargs.store = !codingConfig.disableResponseStorage;
   }
   return kwargs;

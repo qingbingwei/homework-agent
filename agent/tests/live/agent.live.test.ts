@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 const LIVE_TEST_ENABLED = process.env.AGENT_LIVE_TEST === "1";
 const BASE_URL = process.env.AGENT_LIVE_BASE_URL ?? "http://127.0.0.1:19000";
 const CODING_MODEL_PROFILE = process.env.AGENT_LIVE_CODING_MODEL_PROFILE ?? "deepseek";
+const CODING_REASONING_EFFORT = process.env.AGENT_LIVE_CODING_REASONING_EFFORT ?? "max";
+const CODING_THINKING_TYPE = process.env.AGENT_LIVE_CODING_THINKING_TYPE ?? "enabled";
 const REQUEST_TIMEOUT_MINUTES = 60;
 const MS_PER_MINUTE = 60_000;
 const REQUEST_TIMEOUT_MS = REQUEST_TIMEOUT_MINUTES * MS_PER_MINUTE;
@@ -15,6 +17,8 @@ interface ReportResponse {
   model: string;
   coding_model_profile: string;
   coding_model: string;
+  coding_reasoning_effort: string;
+  coding_thinking_type: string;
 }
 
 const markdownFile = (content: string): Blob => new Blob([content], { type: "text/markdown;charset=utf-8" });
@@ -24,6 +28,10 @@ const buildFormData = (): FormData => {
   form.append("assignment", markdownFile("# 简单问题\n\n你好，请用一句话回复。"), "assignment.md");
   form.append("template", markdownFile("# {{REPORT_TITLE}}\n\n{{REPORT_BODY}}\n"), "template.md");
   form.append("coding_model_profile", CODING_MODEL_PROFILE);
+  if (CODING_MODEL_PROFILE === "deepseek") {
+    form.append("coding_reasoning_effort", CODING_REASONING_EFFORT);
+    form.append("coding_thinking_type", CODING_THINKING_TYPE);
+  }
   return form;
 };
 

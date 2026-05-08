@@ -4,9 +4,11 @@ import {
   BODY_PLACEHOLDER,
   TITLE_PLACEHOLDER,
   applyMarkdownTemplate,
+  buildReportBundle,
   injectIntoDocxTemplate,
   paragraphsToXml,
 } from "../src/templates/index.js";
+import type { ParsedDocument } from "../src/parsing/index.js";
 
 const buildTemplateDocx = async (): Promise<Buffer> => {
   const zip = new JSZip();
@@ -16,6 +18,19 @@ const buildTemplateDocx = async (): Promise<Buffer> => {
     "word/document.xml",
     `<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body>${body}</w:body></w:document>`,
   );
+  return await zip.generateAsync({ type: "nodebuffer" });
+};
+
+const buildBlankDocxTemplate = async (): Promise<Buffer> => {
+  const zip = new JSZip();
+  const body = `<w:p><w:r><w:t xml:space=\"preserve\">Template heading</w:t></w:r></w:p>` +
+    "<w:p></w:p>" +
+    `<w:p><w:pPr><w:sectPr /></w:pPr></w:p>`;
+  zip.file(
+    "word/document.xml",
+    `<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body>${body}</w:body></w:document>`,
+  );
+  zip.file("customXml/item1.xml", "<kept />");
   return await zip.generateAsync({ type: "nodebuffer" });
 };
 
@@ -52,5 +67,27 @@ describe("injectIntoDocxTemplate", () => {
     expect(xml).toContain("Body line");
     expect(xml).not.toContain(TITLE_PLACEHOLDER);
     expect(xml).not.toContain(BODY_PLACEHOLDER);
+  });
+});
+
+describe("buildReportBundle", () => {
+  it("preserves uploaded docx package structure instead of rebuilding with pandoc", async () => {
+    const rawBytes = await buildBlankDocxTemplate();
+    const template: ParsedDocument = {
+      filename: "template.docx",
+      kind: ".docx",
+      text: "Template heading",
+      rawBytes,
+    };
+
+    const result = await buildReportBundle(template, "# Generated Title\n\nGenerated body", "Generated Title");
+
+    expect(result.templateStrategy).toBe("docx-template-preserved");
+    const zip = await JSZip.loadAsync(result.docxBytes);
+    expect(await zip.file("customXml/item1.xml")!.async("string")).toBe("<kept />");
+    const xml = await zip.file("word/document.xml")!.async("string");
+    expect(xml).toContain("Template heading");
+    expect(xml).toContain("Generated Title");
+    expect(xml).toContain("Generated body");
   });
 });

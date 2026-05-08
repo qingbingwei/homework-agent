@@ -4,8 +4,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { execa } from "execa";
 import type { Sandbox } from "./sandbox.js";
+import { LIMITS } from "../../constants.js";
 
-const truncate = (value: string, max = 4000): string => {
+const truncate = (value: string, max: number = LIMITS.TOOL_STDOUT): string => {
   if (value.length <= max) return value;
   return `${value.slice(0, max)}\n...<truncated ${value.length - max} chars>`;
 };
@@ -22,6 +23,14 @@ const SHELL_ALLOWLIST = new Set([
   "pwd",
   "head",
   "tail",
+  "grep",
+  "wc",
+  "sort",
+  "uniq",
+  "cut",
+  "tr",
+  "dirname",
+  "basename",
 ]);
 
 export interface ToolRegistry {
@@ -66,7 +75,7 @@ const buildReadFileTool = (sandbox: Sandbox) =>
     func: async ({ path }) => {
       const absolute = sandbox.resolveWithin(path);
       const content = await readFile(absolute, "utf8");
-      return JSON.stringify({ ok: true, path, content: truncate(content, 8000) });
+      return JSON.stringify({ ok: true, path, content: truncate(content, LIMITS.FILE_READ) });
     },
   });
 
@@ -88,7 +97,7 @@ const buildRunShellTool = (sandbox: Sandbox) =>
         const result = await execa(command, args, {
           cwd: sandbox.rootDir,
           input: stdin,
-          timeout: 20_000,
+          timeout: LIMITS.SANDBOX_TIMEOUT_MS,
           reject: false,
           env: sanitizedEnv(),
         });
@@ -137,7 +146,7 @@ const executeInterpreter = async (
     const result = await execa(command, args, {
       cwd: sandbox.rootDir,
       input: stdin,
-      timeout: 20_000,
+      timeout: LIMITS.SANDBOX_TIMEOUT_MS,
       reject: false,
       env: sanitizedEnv(),
     });

@@ -1,7 +1,9 @@
+import { rmSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { resolve, relative, isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
 import { AgentError } from "../../http/errors.js";
+import { LIMITS } from "../../constants.js";
 
 export interface Sandbox {
   requestId: string;
@@ -12,6 +14,14 @@ export interface Sandbox {
 }
 
 const SANDBOX_ROOT = join(tmpdir(), "homework-agent-coding");
+
+process.once("exit", () => {
+  rmSync(SANDBOX_ROOT, { recursive: true, force: true });
+});
+
+export const cleanupStaleSandboxes = async (): Promise<void> => {
+  await rm(SANDBOX_ROOT, { recursive: true, force: true }).catch(() => undefined);
+};
 
 export const createSandbox = async (requestId: string, taskId: string): Promise<Sandbox> => {
   const safeRequest = sanitizeSegment(requestId, "req");
@@ -53,6 +63,9 @@ export const createSandbox = async (requestId: string, taskId: string): Promise<
 };
 
 const sanitizeSegment = (value: string, fallback: string): string => {
-  const cleaned = value.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/-{2,}/g, "-").slice(0, 48);
+  const cleaned = value
+    .replace(/[^a-zA-Z0-9_-]/g, "-")
+    .replace(/-{2,}/g, "-")
+    .slice(0, LIMITS.SANDBOX_SEGMENT_LENGTH);
   return cleaned.length > 0 ? cleaned : fallback;
 };

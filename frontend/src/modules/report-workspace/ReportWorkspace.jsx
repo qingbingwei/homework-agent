@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FileDropZone } from "./FileDropZone";
 import { ModelSelector } from "./ModelSelector";
 
-const helperText = "支持 `.docx`、`.pdf`、`.md`。DOCX 模板支持 `{{REPORT_TITLE}}` 与 `{{REPORT_BODY}}` 占位符。";
+const helperText = "支持 `.docx`、`.pdf`、`.md`。Word 模板可选；未上传模板时会直接生成 DOCX。";
 
 function getErrorTitle(error) {
   if (!error) return "";
@@ -45,10 +45,10 @@ function FileInputs({ assignment, onAssignmentChange, onTemplateChange, template
         onChange={onAssignmentChange}
       />
       <FileDropZone
-        description="建议模板预留标题与正文占位符"
+        description="可选。上传 `.docx` 模板可保留原有 Word 结构。"
         file={template}
         id="template-file"
-        label="实验模板"
+        label="实验模板（可选）"
         onChange={onTemplateChange}
       />
     </div>
@@ -58,11 +58,11 @@ function FileInputs({ assignment, onAssignmentChange, onTemplateChange, template
 function ReportFormCard({ error, onSubmit, submitting }) {
   const [assignment, setAssignment] = useState(null);
   const [template, setTemplate] = useState(null);
-  const canSubmit = Boolean(assignment && template && !submitting);
+  const canSubmit = Boolean(assignment && !submitting);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!assignment || !template) return;
+    if (!assignment) return;
     await onSubmit({ assignment, template });
   };
 
@@ -71,10 +71,10 @@ function ReportFormCard({ error, onSubmit, submitting }) {
       <Card.Header>
         <div>
           <p className="eyebrow">Input files</p>
-          <Card.Title>上传作业与实验模板</Card.Title>
+          <Card.Title>上传作业与可选模板</Card.Title>
           <Card.Description>{helperText}</Card.Description>
         </div>
-        <Chip size="sm" variant="soft">2 files required</Chip>
+        <Chip size="sm" variant="soft">1 file required</Chip>
       </Card.Header>
       <Card.Content>
         <form className="report-form" onSubmit={handleSubmit}>
@@ -102,8 +102,13 @@ export function ReportWorkspace({
   error,
   modelOptions,
   onModelChange,
+  onReasoningChange,
+  onThinkingChange,
   onSubmit,
+  reasoningOptions,
+  selectedCodingReasoningEffort,
   selectedCodingModel,
+  selectedCodingThinkingType,
   submitting,
 }) {
   return (
@@ -111,7 +116,12 @@ export function ReportWorkspace({
       <ModelSelector
         modelOptions={modelOptions}
         onModelChange={onModelChange}
+        onReasoningChange={onReasoningChange}
+        onThinkingChange={onThinkingChange}
+        reasoningOptions={reasoningOptions}
+        selectedCodingReasoningEffort={selectedCodingReasoningEffort}
         selectedCodingModel={selectedCodingModel}
+        selectedCodingThinkingType={selectedCodingThinkingType}
       />
 
       <ReportFormCard error={error} onSubmit={onSubmit} submitting={submitting} />

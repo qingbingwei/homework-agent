@@ -1,15 +1,22 @@
 import JSZip from "jszip";
 import { execa } from "execa";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { rmSync } from "node:fs";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AgentError } from "../http/errors.js";
 import type { ParsedDocument } from "../parsing/index.js";
+import { decodeXmlEntities, escapeXml } from "../utils/xml.js";
 
 export const TITLE_PLACEHOLDER = "{{REPORT_TITLE}}";
 export const BODY_PLACEHOLDER = "{{REPORT_BODY}}";
+const DOCX_RENDER_TMP_ROOT = join(tmpdir(), "homework-agent-docx-render");
 
-export type TemplateStrategy = "docx-xml-placeholder" | "reference-docx" | "pandoc-generated";
+process.once("exit", () => {
+  rmSync(DOCX_RENDER_TMP_ROOT, { recursive: true, force: true });
+});
+
+export type TemplateStrategy = "docx-template-preserved" | "pandoc-generated";
 
 export interface RenderedReport {
   markdownContent: string;
@@ -18,13 +25,26 @@ export interface RenderedReport {
 }
 
 export const buildReportBundle = async (
-  template: ParsedDocument,
+  template: ParsedDocument | null,
   reportMarkdown: string,
   title: string,
 ): Promise<RenderedReport> => {
-  const markdownContent = applyMarkdownTemplate(template.text, reportMarkdown, title);
-  const { bytes, strategy } = await buildDocxOutput(template, markdownContent, title);
-  return { markdownContent, docxBytes: bytes, templateStrategy: strategy };
+  const markdownContent = buildMarkdownContent(template, reportMarkdown, title);
+  if (template?.kind === ".docx") {
+    // Preserve the uploaded Word package; only edit document.xml content in place.
+    const docxBytes = await injectIntoDocxTemplate(template.rawBytes, title, markdownContent);
+    if (!docxBytes) throw invalidDocxTemplate("docx missing word/document.xml");
+    return { markdownContent, docxBytes, templateStrategy: "docx-template-preserved" };
+  }
+  return {
+    markdownContent,
+    docxBytes: await markdownToDocx(markdownContent, null),
+    templateStrategy: "pandoc-generated",
+  };
+};
+
+export const cleanupStaleDocxRenderWorkdirs = async (): Promise<void> => {
+  await rm(DOCX_RENDER_TMP_ROOT, { recursive: true, force: true });
 };
 
 export const applyMarkdownTemplate = (
@@ -42,21 +62,13 @@ export const applyMarkdownTemplate = (
   return reportMarkdown.trim();
 };
 
-const buildDocxOutput = async (
-  template: ParsedDocument,
-  markdownContent: string,
+const buildMarkdownContent = (
+  template: ParsedDocument | null,
+  reportMarkdown: string,
   title: string,
-): Promise<{ bytes: Buffer; strategy: TemplateStrategy }> => {
-  if (template.kind === ".docx") {
-    const injected = await injectIntoDocxTemplate(template.rawBytes, title, markdownContent);
-    if (injected) {
-      return { bytes: injected, strategy: "docx-xml-placeholder" };
-    }
-    const bytes = await markdownToDocx(markdownContent, template.rawBytes);
-    return { bytes, strategy: "reference-docx" };
-  }
-  const bytes = await markdownToDocx(markdownContent, null);
-  return { bytes, strategy: "pandoc-generated" };
+): string => {
+  if (!template || template.kind === ".docx") return reportMarkdown.trim();
+  return applyMarkdownTemplate(template.text, reportMarkdown, title);
 };
 
 export const injectIntoDocxTemplate = async (
@@ -68,27 +80,13 @@ export const injectIntoDocxTemplate = async (
   const documentEntry = zip.file("word/document.xml");
   if (!documentEntry) return null;
   const xml = await documentEntry.async("string");
-  if (!xml.includes(TITLE_PLACEHOLDER) && !xml.includes(BODY_PLACEHOLDER)) {
-    return null;
-  }
-  const titleApplied = xml.split(TITLE_PLACEHOLDER).join(escapeXml(title));
-  const finalXml = replaceBodyPlaceholder(titleApplied, markdownContent);
+  const finalXml = fillDocxDocumentXml(xml, title, markdownContent);
   zip.file("word/document.xml", finalXml);
   return await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
 };
 
 export const paragraphsToXml = (markdownContent: string): string => {
-  const fragments: string[] = [];
-  for (const rawLine of markdownContent.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    const cleaned = line.replace(/^[#\-\s]+/, "");
-    if (!cleaned) continue;
-    fragments.push(
-      `<w:p><w:r><w:t xml:space="preserve">${escapeXml(cleaned)}</w:t></w:r></w:p>`,
-    );
-  }
-  return fragments.join("");
+  return markdownToTextLines(markdownContent).map(textLineToParagraphXml).join("");
 };
 
 export const replaceBodyPlaceholder = (documentXml: string, markdownContent: string): string => {
@@ -102,11 +100,83 @@ export const replaceBodyPlaceholder = (documentXml: string, markdownContent: str
   return documentXml.split(BODY_PLACEHOLDER).join(escapeXml(markdownContent));
 };
 
+const fillDocxDocumentXml = (
+  documentXml: string,
+  title: string,
+  markdownContent: string,
+): string => {
+  if (!documentXml.includes("</w:body>")) throw invalidDocxTemplate("docx missing w:body");
+  const titleApplied = documentXml.split(TITLE_PLACEHOLDER).join(escapeXml(title));
+  if (titleApplied.includes(BODY_PLACEHOLDER)) return replaceBodyPlaceholder(titleApplied, markdownContent);
+  return fillBlankParagraphs(titleApplied, markdownContent);
+};
+
+const fillBlankParagraphs = (documentXml: string, markdownContent: string): string => {
+  const lines = markdownToTextLines(markdownContent);
+  let lineIndex = 0;
+  const filledXml = documentXml.replace(/<w:p\b[\s\S]*?<\/w:p>/g, (paragraph) => {
+    if (lineIndex >= lines.length || extractParagraphText(paragraph).trim()) return paragraph;
+    const nextLine = lines[lineIndex] ?? "";
+    lineIndex += 1;
+    return insertTextIntoParagraph(paragraph, nextLine);
+  });
+  const leftovers = lines.slice(lineIndex).map(textLineToParagraphXml).join("");
+  return leftovers ? insertBeforeSectionProperties(filledXml, leftovers) : filledXml;
+};
+
+const insertTextIntoParagraph = (paragraphXml: string, text: string): string => {
+  const run = `<w:r><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r>`;
+  return paragraphXml.replace(/<\/w:p>\s*$/, `${run}</w:p>`);
+};
+
+const insertBeforeSectionProperties = (documentXml: string, paragraphXml: string): string => {
+  const sectionPattern = /(<w:sectPr\b[\s\S]*?(?:<\/w:sectPr>|\/>)\s*<\/w:body>)/;
+  if (sectionPattern.test(documentXml)) return documentXml.replace(sectionPattern, `${paragraphXml}$1`);
+  return documentXml.replace("</w:body>", `${paragraphXml}</w:body>`);
+};
+
+const extractParagraphText = (paragraphXml: string): string => {
+  const pieces: string[] = [];
+  const textRegex = /<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g;
+  let match: RegExpExecArray | null;
+  while ((match = textRegex.exec(paragraphXml)) !== null) {
+    pieces.push(decodeXmlEntities(match[1] ?? ""));
+  }
+  return pieces.join("");
+};
+
+const markdownToTextLines = (markdownContent: string): string[] => {
+  const lines: string[] = [];
+  let inCodeBlock = false;
+  for (const rawLine of markdownContent.split(/\r?\n/)) {
+    const trimmed = rawLine.trim();
+    if (trimmed.startsWith("```")) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (!inCodeBlock && !trimmed) continue;
+    const cleaned = inCodeBlock ? rawLine : cleanMarkdownLine(trimmed);
+    if (cleaned.trim()) lines.push(cleaned);
+  }
+  return lines;
+};
+
+const cleanMarkdownLine = (line: string): string => (
+  line
+    .replace(/^#{1,6}\s+/, "")
+    .replace(/^\s*[-*+]\s+/, "")
+    .replace(/^\s*\d+[.)]\s+/, "")
+);
+
+const textLineToParagraphXml = (line: string): string => (
+  `<w:p><w:r><w:t xml:space="preserve">${escapeXml(line)}</w:t></w:r></w:p>`
+);
+
 export const markdownToDocx = async (
   markdownContent: string,
   referenceDocx: Buffer | null,
 ): Promise<Buffer> => {
-  const workingDir = await mkdtemp(join(tmpdir(), "homework-agent-template-"));
+  const workingDir = await createDocxRenderWorkdir();
   try {
     const markdownPath = join(workingDir, "report.md");
     const outputPath = join(workingDir, "report.docx");
@@ -134,17 +204,16 @@ export const markdownToDocx = async (
   }
 };
 
-const escapeXml = (value: string): string =>
-  value
-    .split("&")
-    .join("&amp;")
-    .split("<")
-    .join("&lt;")
-    .split(">")
-    .join("&gt;")
-    .split('"')
-    .join("&quot;")
-    .split("'")
-    .join("&apos;");
+const createDocxRenderWorkdir = async (): Promise<string> => {
+  await mkdir(DOCX_RENDER_TMP_ROOT, { recursive: true });
+  return await mkdtemp(join(DOCX_RENDER_TMP_ROOT, "render-"));
+};
 
 const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const invalidDocxTemplate = (message: string): AgentError => new AgentError({
+  code: "invalid_docx_template",
+  message,
+  stage: "write",
+  statusCode: 400,
+});

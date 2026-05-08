@@ -17,20 +17,22 @@ func TestGenerateReport(t *testing.T) {
 		if r.URL.Path != "/generate-report" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
-		profile := readMultipartField(t, r, "coding_model_profile")
-		if profile != "deepseek" {
-			t.Fatalf("unexpected coding model profile: %s", profile)
-		}
+		fields := readMultipartFields(t, r)
+		assertMultipartField(t, fields, "coding_model_profile", "deepseek")
+		assertMultipartField(t, fields, "coding_reasoning_effort", "high")
+		assertMultipartField(t, fields, "coding_thinking_type", "disabled")
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"file_name":"report.docx","markdown_content":"# ok","docx_base64":"Zm9v","template_strategy":"reference-docx","model":"gpt-5.5"}`))
+		_, _ = w.Write([]byte(`{"file_name":"report.docx","markdown_content":"# ok","docx_base64":"Zm9v","template_strategy":"reference-docx","model":"gpt-5.5","coding_reasoning_effort":"high","coding_thinking_type":"disabled"}`))
 	}))
 	defer server.Close()
 
 	client := NewClient(server.URL, &http.Client{Timeout: time.Second})
 	result, err := client.GenerateReport(context.Background(), GenerateReportRequest{
-		Assignment:         FilePayload{Name: "hw.md", ContentType: "text/markdown", Data: []byte("a")},
-		Template:           FilePayload{Name: "template.md", ContentType: "text/markdown", Data: []byte("b")},
-		CodingModelProfile: "deepseek",
+		Assignment:            FilePayload{Name: "hw.md", ContentType: "text/markdown", Data: []byte("a")},
+		Template:              FilePayload{Name: "template.md", ContentType: "text/markdown", Data: []byte("b")},
+		CodingModelProfile:    "deepseek",
+		CodingReasoningEffort: "high",
+		CodingThinkingType:    "disabled",
 	})
 	if err != nil {
 		t.Fatalf("GenerateReport returned error: %v", err)
@@ -87,20 +89,31 @@ func TestGenerateReportReturnsStructuredServiceError(t *testing.T) {
 	}
 }
 
-func readMultipartField(t *testing.T, r *http.Request, name string) string {
+func readMultipartFields(t *testing.T, r *http.Request) map[string]string {
 	t.Helper()
 	reader, err := r.MultipartReader()
 	if err != nil {
 		t.Fatalf("multipart reader: %v", err)
 	}
+	fields := map[string]string{}
 	for {
 		part, err := reader.NextPart()
+		if err == io.EOF {
+			return fields
+		}
 		if err != nil {
-			t.Fatalf("read multipart field %s: %v", name, err)
+			t.Fatalf("read multipart field: %v", err)
 		}
-		if part.FormName() == name {
-			return readPartValue(t, part)
+		if part.FileName() == "" {
+			fields[part.FormName()] = readPartValue(t, part)
 		}
+	}
+}
+
+func assertMultipartField(t *testing.T, fields map[string]string, name string, expected string) {
+	t.Helper()
+	if fields[name] != expected {
+		t.Fatalf("unexpected multipart field %s: %q", name, fields[name])
 	}
 }
 

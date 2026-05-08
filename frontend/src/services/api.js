@@ -34,11 +34,25 @@ export async function fetchCapabilities() {
   return okResponse.json();
 }
 
-export async function generateReport({ assignment, template, codingModelProfile }) {
+export async function generateReport({
+  assignment,
+  template,
+  codingModelProfile,
+  codingReasoningEffort,
+  codingThinkingType,
+}) {
   const formData = new FormData();
   formData.append("assignment", assignment);
-  formData.append("template", template);
+  if (template) {
+    formData.append("template", template);
+  }
   formData.append("coding_model_profile", codingModelProfile || "gpt");
+  if (codingModelProfile === "deepseek" && codingReasoningEffort) {
+    formData.append("coding_reasoning_effort", codingReasoningEffort);
+  }
+  if (codingModelProfile === "deepseek" && codingThinkingType) {
+    formData.append("coding_thinking_type", codingThinkingType);
+  }
 
   const response = await fetch("/api/report/generate", {
     method: "POST",

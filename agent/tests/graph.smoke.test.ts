@@ -1,51 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import JSZip from "jszip";
-import { FakeListChatModel } from "@langchain/core/utils/testing";
-import { runReportService } from "../src/reporting/service.js";
+import { runReportService, type ReportServiceDeps } from "../src/reporting/service.js";
 import type { AppConfig } from "../src/config.js";
-
-vi.mock("../src/llm/chat.js", async () => {
-  const planJson = JSON.stringify({
-    title: "Demo Lab Report",
-    summary: "Single-task demo plan for testing",
-    tasks: [
-      {
-        id: "task-1",
-        title: "Compute 2 + 3",
-        description: "Return the integer result.",
-        requires_code: false,
-        language: "none",
-        acceptance: "final JSON reports status completed",
-      },
-    ],
-  });
-  const codingJson = JSON.stringify({
-    task_id: "task-1",
-    status: "completed",
-    explanation: "2+3 equals 5",
-    code: "",
-    language: "none",
-    stdout: "5",
-    stderr: "",
-    artifacts: [],
-  });
-  const reportMarkdown = "# Demo Lab Report\n\nThe sum equals 5.";
-
-  const responses = [
-    `\`\`\`json\n${planJson}\n\`\`\``,
-    codingJson,
-    codingJson,
-    reportMarkdown,
-    reportMarkdown,
-  ];
-
-  return {
-    createChatModel: () => {
-      const model = new FakeListChatModel({ responses });
-      return Object.assign(model, { bindTools: () => model });
-    },
-  };
-});
 
 const buildDocx = async (paragraphs: string[]): Promise<Buffer> => {
   const zip = new JSZip();
@@ -72,6 +28,7 @@ describe("runReportService (graph smoke)", () => {
         thinkingType: "enabled",
       },
       codingLlm: {
+        kind: "gpt",
         provider: "OpenAI",
         baseUrl: "https://example.invalid/v1",
         apiKey: "sk-test",
@@ -88,6 +45,7 @@ describe("runReportService (graph smoke)", () => {
         requiresOpenAIAuth: true,
       },
       codingDeepseekLlm: {
+        kind: "deepseek",
         baseUrl: "https://example.invalid/v1",
         apiKey: "sk-test",
         model: "deepseek-v4-pro",
@@ -99,18 +57,63 @@ describe("runReportService (graph smoke)", () => {
 
     const templateMarkdown = Buffer.from("# {{REPORT_TITLE}}\n\n{{REPORT_BODY}}", "utf8");
     const assignmentDocx = await buildDocx(["What is 2 + 3?"]);
+    const finalDocx = await buildDocx(["The sum equals 5."]);
 
-    const response = await runReportService(config, {
-      assignment: { filename: "homework.docx", data: assignmentDocx },
-      template: { filename: "template.md", data: templateMarkdown },
-      requestId: "req-test",
-      codingModelProfile: "deepseek",
-    });
+    const deps: Partial<ReportServiceDeps> = {
+      runGraph: async (_deps, input) => ({
+        ...input,
+        plan: {
+          title: "Demo Lab Report",
+          summary: "Single-task demo plan for testing",
+          tasks: [
+            {
+              id: "task-1",
+              title: "Compute 2 + 3",
+              description: "Return the integer result.",
+              requires_code: false,
+              acceptance: "final JSON reports status completed",
+            },
+          ],
+        },
+        results: [
+          {
+            task_id: "task-1",
+            status: "completed",
+            explanation: "2+3 equals 5",
+            code: "",
+            stdout: "5",
+            stderr: "",
+            artifacts: [],
+          },
+        ],
+        writer: {
+          title: "Demo Lab Report",
+          markdownPreview: "# Demo Lab Report\n\nThe sum equals 5.",
+          docxBytes: finalDocx,
+          templateStrategy: "deep-agent-docx-generated",
+        },
+      }),
+    };
+
+    const response = await runReportService(
+      config,
+      {
+        assignment: { filename: "homework.docx", data: assignmentDocx },
+        template: { filename: "template.md", data: templateMarkdown },
+        requestId: "req-test",
+        codingModelProfile: "deepseek",
+        codingReasoningEffort: "high",
+        codingThinkingType: "disabled",
+      },
+      deps,
+    );
 
     expect(response.model).toBe("deepseek-v4-pro");
     expect(response.coding_model_profile).toBe("deepseek");
     expect(response.coding_model).toBe("deepseek-v4-pro");
-    expect(response.template_strategy).toBe("pandoc-generated");
+    expect(response.coding_reasoning_effort).toBe("high");
+    expect(response.coding_thinking_type).toBe("disabled");
+    expect(response.template_strategy).toBe("deep-agent-docx-generated");
     expect(response.markdown_content).toContain("Demo Lab Report");
     expect(response.file_name).toBe("homework-report.docx");
     expect(response.docx_base64.length).toBeGreaterThan(100);

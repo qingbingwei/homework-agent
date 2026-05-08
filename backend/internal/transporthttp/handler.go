@@ -21,6 +21,11 @@ import (
 var supportedFormats = []string{".docx", ".pdf", ".md"}
 var docxPlaceholders = []string{"{{REPORT_TITLE}}", "{{REPORT_BODY}}"}
 var codingModelProfiles = []string{"gpt", "deepseek"}
+var codingReasoningEfforts = map[string][]string{"deepseek": {"high", "max"}}
+var codingThinkingTypes = map[string][]string{"deepseek": {"enabled", "disabled"}}
+
+const defaultDeepseekReasoningEffort = "max"
+const defaultDeepseekThinkingType = "enabled"
 
 type agentService interface {
 	GenerateReport(context.Context, agent.GenerateReportRequest) (report.Result, error)
@@ -43,11 +48,13 @@ type healthResponse struct {
 }
 
 type capabilitiesResponse struct {
-	SupportedFormats    []string `json:"supported_formats"`
-	TemplateModes       []string `json:"template_modes"`
-	DocxPlaceholders    []string `json:"docx_placeholders"`
-	CodingModelProfiles []string `json:"coding_model_profiles"`
-	MaxUploadBytes      int64    `json:"max_upload_bytes"`
+	SupportedFormats       []string            `json:"supported_formats"`
+	TemplateModes          []string            `json:"template_modes"`
+	DocxPlaceholders       []string            `json:"docx_placeholders"`
+	CodingModelProfiles    []string            `json:"coding_model_profiles"`
+	CodingReasoningEfforts map[string][]string `json:"coding_reasoning_efforts"`
+	CodingThinkingTypes    map[string][]string `json:"coding_thinking_types"`
+	MaxUploadBytes         int64               `json:"max_upload_bytes"`
 }
 
 type errorResponse struct {
@@ -90,11 +97,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleCapabilities(w http.ResponseWriter) {
 	writeJSON(w, http.StatusOK, capabilitiesResponse{
-		SupportedFormats:    supportedFormats,
-		TemplateModes:       []string{"docx-xml-placeholder", "reference-docx", "pandoc-generated"},
-		DocxPlaceholders:    docxPlaceholders,
-		CodingModelProfiles: codingModelProfiles,
-		MaxUploadBytes:      h.config.MaxUploadBytes,
+		SupportedFormats:       supportedFormats,
+		TemplateModes:          []string{"docx-xml-placeholder", "reference-docx", "pandoc-generated"},
+		DocxPlaceholders:       docxPlaceholders,
+		CodingModelProfiles:    codingModelProfiles,
+		CodingReasoningEfforts: codingReasoningEfforts,
+		CodingThinkingTypes:    codingThinkingTypes,
+		MaxUploadBytes:         h.config.MaxUploadBytes,
 	})
 }
 
@@ -131,11 +140,23 @@ func (h *Handler) handleGenerateReport(w http.ResponseWriter, r *http.Request) {
 		writeErrorJSON(w, http.StatusBadRequest, "invalid_coding_model_profile", "backend", err.Error())
 		return
 	}
+	codingReasoningEffort, err := readCodingReasoningEffort(r, codingModelProfile)
+	if err != nil {
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_coding_reasoning_effort", "backend", err.Error())
+		return
+	}
+	codingThinkingType, err := readCodingThinkingType(r, codingModelProfile)
+	if err != nil {
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_coding_thinking_type", "backend", err.Error())
+		return
+	}
 
 	result, err := h.agentClient.GenerateReport(r.Context(), agent.GenerateReportRequest{
-		Assignment:         assignment,
-		Template:           template,
-		CodingModelProfile: codingModelProfile,
+		Assignment:            assignment,
+		Template:              template,
+		CodingModelProfile:    codingModelProfile,
+		CodingReasoningEffort: codingReasoningEffort,
+		CodingThinkingType:    codingThinkingType,
 	})
 	if err != nil {
 		writeGenerateError(w, err)
@@ -155,6 +176,38 @@ func readCodingModelProfile(r *http.Request) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("unsupported coding model profile: %s", value)
+}
+
+func readCodingReasoningEffort(r *http.Request, profile string) (string, error) {
+	value := strings.TrimSpace(r.FormValue("coding_reasoning_effort"))
+	if profile != "deepseek" {
+		return "", nil
+	}
+	if value == "" {
+		return defaultDeepseekReasoningEffort, nil
+	}
+	for _, effort := range codingReasoningEfforts["deepseek"] {
+		if value == effort {
+			return value, nil
+		}
+	}
+	return "", fmt.Errorf("unsupported deepseek reasoning effort: %s", value)
+}
+
+func readCodingThinkingType(r *http.Request, profile string) (string, error) {
+	value := strings.TrimSpace(r.FormValue("coding_thinking_type"))
+	if profile != "deepseek" {
+		return "", nil
+	}
+	if value == "" {
+		return defaultDeepseekThinkingType, nil
+	}
+	for _, thinkingType := range codingThinkingTypes["deepseek"] {
+		if value == thinkingType {
+			return value, nil
+		}
+	}
+	return "", fmt.Errorf("unsupported deepseek thinking type: %s", value)
 }
 
 func readUploadedFile(r *http.Request, field string) (agent.FilePayload, error) {
