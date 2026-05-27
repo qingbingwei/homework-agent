@@ -49,12 +49,12 @@ export default function App() {
         selectedCodingThinkingType={selectedCodingThinkingType}
         submitting={reportState.submitting}
       />
-      <SystemModule capabilities={capabilities} health={health} />
       <ResultModule
         report={reportState.report}
         onDownloadMarkdown={reportState.downloadMarkdown}
         onDownloadDocx={reportState.downloadDocx}
       />
+      <SystemModule capabilities={capabilities} health={health} />
     </AppShell>
   );
 }

@@ -40,6 +40,7 @@ export async function generateReport({
   codingModelProfile,
   codingReasoningEffort,
   codingThinkingType,
+  supplementalInstructions,
 }) {
   const formData = new FormData();
   formData.append("assignment", assignment);
@@ -52,6 +53,9 @@ export async function generateReport({
   }
   if (codingModelProfile === "deepseek" && codingThinkingType) {
     formData.append("coding_thinking_type", codingThinkingType);
+  }
+  if (supplementalInstructions?.trim()) {
+    formData.append("supplemental_instructions", supplementalInstructions.trim());
   }
 
   const response = await fetch("/api/report/generate", {
