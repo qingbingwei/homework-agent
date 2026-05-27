@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const LanguageSchema = z.preprocess(
   (value) => (value === "none" ? undefined : value),
-  z.enum(["python", "node"]).optional(),
+  z.enum(["python", "node", "java", "cpp"]).optional(),
 );
 
 export const TaskSchema = z.object({
@@ -35,6 +35,26 @@ export const TaskResultSchema = z.object({
 });
 
 export type TaskResult = z.infer<typeof TaskResultSchema>;
+
+export const nonCodeTaskResult = (task: Task): TaskResult => ({
+  task_id: task.id,
+  status: "completed",
+  explanation: "Non-code task; no coding execution was required.",
+  code: "",
+  stdout: "",
+  stderr: "",
+  artifacts: [],
+});
+
+export const failedTaskResult = (task: Task, explanation: string, stderr: string): TaskResult => ({
+  task_id: task.id,
+  status: "failed",
+  explanation,
+  code: "",
+  stdout: "",
+  stderr,
+  artifacts: [],
+});
 
 export type WriterTemplateStrategy = "deep-agent-docx-template" | "deep-agent-docx-generated";
 

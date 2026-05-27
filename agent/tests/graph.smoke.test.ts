@@ -20,6 +20,18 @@ describe("runReportService (graph smoke)", () => {
     const config: AppConfig = {
       host: "127.0.0.1",
       port: 0,
+      codeExecution: {
+        backend: "host",
+        container: {
+          engine: "docker",
+          image: "homework-agent-code-runtime:latest",
+          network: "none",
+          cpus: "2",
+          memory: "2g",
+          pidsLimit: 256,
+          runAsCurrentUser: true,
+        },
+      },
       planLlm: {
         baseUrl: "https://example.invalid/v1",
         apiKey: "sk-test",
@@ -55,55 +67,61 @@ describe("runReportService (graph smoke)", () => {
       langsmith: { enabled: false, apiKey: "", project: "test", endpoint: "" },
     };
 
-    const templateMarkdown = Buffer.from("# {{REPORT_TITLE}}\n\n{{REPORT_BODY}}", "utf8");
+    const templateDocx = await buildDocx(["Template body"]);
     const assignmentDocx = await buildDocx(["What is 2 + 3?"]);
     const finalDocx = await buildDocx(["The sum equals 5."]);
 
     const deps: Partial<ReportServiceDeps> = {
-      runGraph: async (_deps, input) => ({
-        ...input,
-        plan: {
-          title: "Demo Lab Report",
-          summary: "Single-task demo plan for testing",
-          tasks: [
+      runGraph: async (graphDeps, input) => {
+        expect(input.assignment.rawBytes).toHaveLength(0);
+        expect(input.template?.rawBytes).toHaveLength(0);
+        expect(graphDeps.templateDocxBytes?.equals(templateDocx)).toBe(true);
+        return {
+          ...input,
+          plan: {
+            title: "Demo Lab Report",
+            summary: "Single-task demo plan for testing",
+            tasks: [
+              {
+                id: "task-1",
+                title: "Compute 2 + 3",
+                description: "Return the integer result.",
+                requires_code: false,
+                acceptance: "final JSON reports status completed",
+              },
+            ],
+          },
+          results: [
             {
-              id: "task-1",
-              title: "Compute 2 + 3",
-              description: "Return the integer result.",
-              requires_code: false,
-              acceptance: "final JSON reports status completed",
+              task_id: "task-1",
+              status: "completed",
+              explanation: "2+3 equals 5",
+              code: "",
+              stdout: "5",
+              stderr: "",
+              artifacts: [],
             },
           ],
-        },
-        results: [
-          {
-            task_id: "task-1",
-            status: "completed",
-            explanation: "2+3 equals 5",
-            code: "",
-            stdout: "5",
-            stderr: "",
-            artifacts: [],
+          writer: {
+            title: "Demo Lab Report",
+            markdownPreview: "# Demo Lab Report\n\nThe sum equals 5.",
+            docxBytes: finalDocx,
+            templateStrategy: "deep-agent-docx-generated",
           },
-        ],
-        writer: {
-          title: "Demo Lab Report",
-          markdownPreview: "# Demo Lab Report\n\nThe sum equals 5.",
-          docxBytes: finalDocx,
-          templateStrategy: "deep-agent-docx-generated",
-        },
-      }),
+        };
+      },
     };
 
     const response = await runReportService(
       config,
       {
         assignment: { filename: "homework.docx", data: assignmentDocx },
-        template: { filename: "template.md", data: templateMarkdown },
+        template: { filename: "template.docx", data: templateDocx },
         requestId: "req-test",
         codingModelProfile: "deepseek",
         codingReasoningEffort: "high",
         codingThinkingType: "disabled",
+        supplementalInstructions: "",
       },
       deps,
     );

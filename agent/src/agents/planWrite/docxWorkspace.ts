@@ -21,6 +21,11 @@ import type { TaskPlan, TaskResult } from "../schema.js";
 import { buildDocxSkillFiles } from "../skills.js";
 import { AgentError } from "../../http/errors.js";
 import { LIMITS } from "../../constants.js";
+import { sanitizeWorkspaceSegment } from "../workspaceUtils.js";
+import { installPythonVirtualPathRuntime, pythonVirtualPathEnv } from "./pythonVirtualPaths.js";
+import { normalizeVirtualPathOutput, rootRecursiveScanError, rewriteVirtualPaths } from "./workspacePaths.js";
+
+export { normalizeVirtualPathOutput, rootRecursiveScanError, rewriteVirtualPaths } from "./workspacePaths.js";
 
 const WRITER_ROOT = join(tmpdir(), "homework-agent-writer-docx");
 export const TEMPLATE_DOCX_PATH = "/workspace/template.docx";
@@ -47,6 +52,7 @@ export interface CreateDocxWriterWorkspaceInput {
   template: ParsedDocument | null;
   plan: TaskPlan;
   results: TaskResult[];
+  supplementalInstructions: string;
 }
 
 export const cleanupStaleDocxWriterWorkspaces = async (): Promise<void> => {
@@ -56,8 +62,9 @@ export const cleanupStaleDocxWriterWorkspaces = async (): Promise<void> => {
 export const createDocxWriterWorkspace = async (
   input: CreateDocxWriterWorkspaceInput,
 ): Promise<DocxWriterWorkspace> => {
-  const rootDir = join(WRITER_ROOT, sanitizeSegment(input.requestId, "req"));
+  const rootDir = join(WRITER_ROOT, sanitizeWorkspaceSegment(input.requestId, "req"));
   await mkdir(rootDir, { recursive: true });
+  await installPythonVirtualPathRuntime(rootDir);
   const backend = new LocalDocxSandbox(rootDir, `docx-writer-${input.requestId}`);
   await backend.uploadFiles(await workspaceFiles(input));
   return {
@@ -82,6 +89,7 @@ const writerContext = (input: CreateDocxWriterWorkspaceInput) => ({
     ? { kind: input.template.kind, filename: input.template.filename, text: input.template.text }
     : null,
   uploaded_docx_template: input.template?.kind === ".docx",
+  supplemental_instructions: input.supplementalInstructions,
   plan: input.plan,
   results: input.results,
   paths: { template_docx: TEMPLATE_DOCX_PATH, final_docx: FINAL_DOCX_PATH, context_json: CONTEXT_JSON_PATH },
@@ -154,13 +162,17 @@ class LocalDocxSandbox implements SandboxBackendProtocol {
 }
 
 const executeInWorkspace = async (rootDir: string, command: string): Promise<ExecuteResponse> => {
+  const scanError = rootRecursiveScanError(command);
+  if (scanError) return { output: scanError, exitCode: 2, truncated: false };
+
   const result = await execa("bash", ["-lc", rewriteVirtualPaths(rootDir, command)], {
     cwd: rootDir,
     timeout: LIMITS.SANDBOX_TIMEOUT_MS,
     reject: false,
-    env: sanitizedEnv(rootDir),
+    env: pythonVirtualPathEnv(rootDir),
   });
-  const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
+  const rawOutput = [result.stdout, result.stderr].filter(Boolean).join("\n");
+  const output = normalizeVirtualPathOutput(rootDir, rawOutput);
   return {
     output: truncate(output),
     exitCode: result.exitCode ?? null,
@@ -168,35 +180,9 @@ const executeInWorkspace = async (rootDir: string, command: string): Promise<Exe
   };
 };
 
-const rewriteVirtualPaths = (rootDir: string, command: string): string => (
-  command
-    .split("/workspace/")
-    .join(`${shellQuote(join(rootDir, "workspace"))}/`)
-    .split("/skills/")
-    .join(`${shellQuote(join(rootDir, "skills"))}/`)
-);
-
-const sanitizedEnv = (rootDir: string): NodeJS.ProcessEnv => ({
-  PATH: process.env.PATH ?? "",
-  HOME: rootDir,
-  LANG: process.env.LANG ?? "C.UTF-8",
-  LC_ALL: process.env.LC_ALL ?? "C.UTF-8",
-  TMPDIR: rootDir,
-});
-
 const truncate = (value: string): string => (
   value.length <= LIMITS.TOOL_STDOUT ? value : `${value.slice(0, LIMITS.TOOL_STDOUT)}\n...<truncated>`
 );
-
-const sanitizeSegment = (value: string, fallback: string): string => {
-  const cleaned = value
-    .replace(/[^a-zA-Z0-9_-]/g, "-")
-    .replace(/-{2,}/g, "-")
-    .slice(0, LIMITS.SANDBOX_SEGMENT_LENGTH);
-  return cleaned.length > 0 ? cleaned : fallback;
-};
-
-const shellQuote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
 
 const writerWorkspaceError = (message: string, cause?: unknown): AgentError => new AgentError({
   code: "writer_docx_workspace_failed",

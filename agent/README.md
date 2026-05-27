@@ -10,6 +10,23 @@ npm install
 npm run dev
 ```
 
+## 代码运行环境
+
+默认使用容器执行生成的实验代码，避免依赖 agent 主机是否安装 Python、Node、Java 或 C/C++ 工具链。
+
+```bash
+docker build -t homework-agent-code-runtime:latest -f agent/docker/code-runtime/Dockerfile agent/docker/code-runtime
+```
+
+关键环境变量：
+
+- `CODE_EXECUTION_BACKEND=container`：使用 Docker/Podman 容器执行代码。
+- `CODE_CONTAINER_ENGINE=docker`：也可以设置为 `podman`。
+- `CODE_CONTAINER_IMAGE=homework-agent-code-runtime:latest`：执行镜像。
+- `CODE_CONTAINER_NETWORK=none`：默认禁用用户代码网络访问。
+
+如果选择容器模式但 Docker/Podman 或镜像不可用，代码任务会明确失败，不会自动退回本机执行。开发调试时可显式设置 `CODE_EXECUTION_BACKEND=host`。
+
 HTTP 契约与旧 Python agent 保持一致：
 
 - `GET /health`：返回 `{status, model, agent_key_configured, base_url}`。

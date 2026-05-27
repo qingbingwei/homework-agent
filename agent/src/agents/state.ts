@@ -7,6 +7,7 @@ export interface GraphInput {
   modelLabel: string;
   assignment: ParsedDocument;
   template: ParsedDocument | null;
+  supplementalInstructions: string;
 }
 
 export interface GraphState {
@@ -14,6 +15,7 @@ export interface GraphState {
   modelLabel: string;
   assignment: ParsedDocument;
   template: ParsedDocument | null;
+  supplementalInstructions: string;
   plan: TaskPlan | null;
   results: TaskResult[];
   writer: WriterOutput | null;
@@ -26,6 +28,7 @@ export const GraphAnnotation = Annotation.Root({
   modelLabel: Annotation<string>({ reducer: replaceValue, default: () => "" }),
   assignment: Annotation<ParsedDocument>({ reducer: replaceValue }),
   template: Annotation<ParsedDocument | null>({ reducer: replaceValue }),
+  supplementalInstructions: Annotation<string>({ reducer: replaceValue, default: () => "" }),
   plan: Annotation<TaskPlan | null>({ reducer: replaceValue, default: () => null }),
   results: Annotation<TaskResult[]>({ reducer: replaceValue, default: () => [] }),
   writer: Annotation<WriterOutput | null>({ reducer: replaceValue, default: () => null }),
@@ -36,6 +39,7 @@ export const initialGraphState = (input: GraphInput): GraphState => ({
   modelLabel: input.modelLabel,
   assignment: input.assignment,
   template: input.template,
+  supplementalInstructions: input.supplementalInstructions,
   plan: null,
   results: [],
   writer: null,

@@ -25,6 +25,58 @@ describe("coding-agent sandbox", () => {
     }
   });
 
+  it("edits files with explicit exact-match semantics", async () => {
+    const sandbox = await createSandbox("req", "task-edit");
+    const tools = buildCodingTools(sandbox);
+    try {
+      await tools.writeFile.invoke({ path: "answer.txt", content: "alpha beta alpha" });
+      const ambiguous = await tools.editFile.invoke({
+        path: "answer.txt",
+        old_text: "alpha",
+        new_text: "gamma",
+      });
+      expect(JSON.parse(ambiguous)).toMatchObject({ ok: false });
+
+      const edited = await tools.editFile.invoke({
+        path: "answer.txt",
+        old_text: "alpha",
+        new_text: "gamma",
+        replace_all: true,
+      });
+      expect(JSON.parse(edited)).toMatchObject({ ok: true, replacements: 2 });
+      const read = await tools.readFile.invoke({ path: "answer.txt" });
+      expect(JSON.parse(read)).toMatchObject({ content: "gamma beta gamma" });
+    } finally {
+      await sandbox.dispose();
+    }
+  });
+
+  it("reads line windows without using interpreter snippets for file inspection", async () => {
+    const sandbox = await createSandbox("req", "task-read-window");
+    const tools = buildCodingTools(sandbox);
+    try {
+      await tools.writeFile.invoke({
+        path: "source.py",
+        content: ["line 1", "line 2", "line 3", "line 4"].join("\n"),
+      });
+      const read = await tools.readFile.invoke({ path: "source.py", offset_line: 2, line_limit: 2 });
+      const payload = JSON.parse(read);
+
+      expect(payload).toMatchObject({
+        ok: true,
+        path: "source.py",
+        start_line: 2,
+        end_line: 3,
+        total_lines: 4,
+        truncated: true,
+      });
+      expect(payload.content).toContain("   2: line 2");
+      expect(payload.content).toContain("   3: line 3");
+    } finally {
+      await sandbox.dispose();
+    }
+  });
+
   it("runs allow-listed shell commands and blocks the rest", async () => {
     const sandbox = await createSandbox("req", "task-shell");
     const tools = buildCodingTools(sandbox);

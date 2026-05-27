@@ -66,6 +66,7 @@ const writeRequest = (overrides: {
   plan,
   results,
   requestId: "writer-test",
+  supplementalInstructions: "",
   runnableConfig: {},
 });
 

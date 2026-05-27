@@ -35,6 +35,18 @@ const deepseekCodingConfig: CodingDeepseekLlmConfig = {
 const baseConfig = (): AppConfig => ({
   host: "127.0.0.1",
   port: 19000,
+  codeExecution: {
+    backend: "host",
+    container: {
+      engine: "docker",
+      image: "homework-agent-code-runtime:latest",
+      network: "none",
+      cpus: "2",
+      memory: "2g",
+      pidsLimit: 256,
+      runAsCurrentUser: true,
+    },
+  },
   planLlm: {
     baseUrl: "https://example.invalid/v1",
     apiKey: "sk-plan",

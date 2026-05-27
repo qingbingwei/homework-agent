@@ -14,6 +14,7 @@ if (existsSync(envPath)) {
 export interface AppConfig {
   host: string;
   port: number;
+  codeExecution: CodeExecutionConfig;
   planLlm: PlanLlmConfig;
   codingLlm: CodingLlmConfig;
   codingDeepseekLlm: CodingDeepseekLlmConfig;
@@ -23,6 +24,25 @@ export interface AppConfig {
     project: string;
     endpoint: string;
   };
+}
+
+export type CodeExecutionBackend = "host" | "container";
+export type ContainerEngine = "docker" | "podman";
+export type ContainerNetworkMode = "none" | "bridge";
+
+export interface CodeExecutionConfig {
+  backend: CodeExecutionBackend;
+  container: ContainerExecutionConfig;
+}
+
+export interface ContainerExecutionConfig {
+  engine: ContainerEngine;
+  image: string;
+  network: ContainerNetworkMode;
+  cpus: string;
+  memory: string;
+  pidsLimit: number;
+  runAsCurrentUser: boolean;
 }
 
 export interface DeepseekLlmConfig {
@@ -68,9 +88,16 @@ export const deepseekCodingReasoningEfforts = ["high", "max"] as const;
 export const deepseekCodingThinkingTypes = ["enabled", "disabled"] as const;
 const planReasoningEfforts = ["high", "max"] as const;
 const gptCodingReasoningEfforts = ["low", "medium", "high", "xhigh"] as const;
+const codeExecutionBackends = ["host", "container"] as const;
+const containerEngines = ["docker", "podman"] as const;
+const containerNetworks = ["none", "bridge"] as const;
 const DEFAULT_GPT_CODING_REASONING_EFFORT: CodingLlmConfig["reasoningEffort"] = "xhigh";
 const DEFAULT_DEEPSEEK_CODING_REASONING_EFFORT: DeepseekReasoningEffort = "max";
 const DEFAULT_DEEPSEEK_CODING_THINKING_TYPE: DeepseekThinkingType = "enabled";
+const DEFAULT_CODE_RUNTIME_IMAGE = "homework-agent-code-runtime:latest";
+const DEFAULT_CONTAINER_CPUS = "2";
+const DEFAULT_CONTAINER_MEMORY = "2g";
+const DEFAULT_CONTAINER_PIDS_LIMIT = 256;
 
 const required = (key: string, fallback?: string): string => {
   const value = process.env[key];
@@ -187,12 +214,26 @@ const loadCodingDeepseekLlmConfig = (): CodingDeepseekLlmConfig => ({
   ),
 });
 
+const loadCodeExecutionConfig = (): CodeExecutionConfig => ({
+  backend: enumValue("CODE_EXECUTION_BACKEND", "container", codeExecutionBackends),
+  container: {
+    engine: enumValue("CODE_CONTAINER_ENGINE", "docker", containerEngines),
+    image: required("CODE_CONTAINER_IMAGE", DEFAULT_CODE_RUNTIME_IMAGE),
+    network: enumValue("CODE_CONTAINER_NETWORK", "none", containerNetworks),
+    cpus: required("CODE_CONTAINER_CPUS", DEFAULT_CONTAINER_CPUS),
+    memory: required("CODE_CONTAINER_MEMORY", DEFAULT_CONTAINER_MEMORY),
+    pidsLimit: numberValue("CODE_CONTAINER_PIDS_LIMIT", DEFAULT_CONTAINER_PIDS_LIMIT),
+    runAsCurrentUser: booleanFlag("CODE_CONTAINER_RUN_AS_CURRENT_USER", true),
+  },
+});
+
 export const loadConfig = (): AppConfig => {
   const tracingFlag = (process.env.LANGSMITH_TRACING ?? "").toLowerCase();
   const tracingEnabled = tracingFlag === "true" || tracingFlag === "1";
   return {
     host: required("AGENT_HOST", "127.0.0.1"),
     port: Number(required("AGENT_PORT", "19000")),
+    codeExecution: loadCodeExecutionConfig(),
     planLlm: loadPlanLlmConfig(),
     codingLlm: loadCodingLlmConfig(),
     codingDeepseekLlm: loadCodingDeepseekLlmConfig(),

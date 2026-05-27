@@ -8,7 +8,8 @@ import {
 } from "../config.js";
 import { createChatModel } from "../llm/chat.js";
 import { runGraph } from "../agents/graph.js";
-import { parseUpload } from "../parsing/index.js";
+import type { GraphState } from "../agents/state.js";
+import { parseUpload, type ParsedDocument } from "../parsing/index.js";
 import { AgentError } from "../http/errors.js";
 
 export interface ReportInput {
@@ -18,6 +19,7 @@ export interface ReportInput {
   codingModelProfile: CodingModelProfile;
   codingReasoningEffort?: DeepseekReasoningEffort;
   codingThinkingType?: DeepseekThinkingType;
+  supplementalInstructions: string;
 }
 
 export interface ReportResponse {
@@ -38,6 +40,25 @@ export interface ReportServiceDeps {
   runGraph: typeof runGraph;
 }
 
+type SelectedCodingConfig = ReturnType<typeof selectCodingLlmConfig>;
+
+interface GenerateGraphStateInput {
+  config: AppConfig;
+  input: ReportInput;
+  providers: ReportServiceDeps;
+  assignment: ParsedDocument;
+  template: ParsedDocument | null;
+  codingConfig: SelectedCodingConfig;
+}
+
+interface BuildResponseInput {
+  config: AppConfig;
+  input: ReportInput;
+  assignment: ParsedDocument;
+  codingConfig: SelectedCodingConfig;
+  finalState: GraphState;
+}
+
 const defaultDeps: ReportServiceDeps = {
   parseUpload,
   createChatModel,
@@ -49,6 +70,21 @@ const stripExt = (filename: string): string => {
   const ext = extname(base);
   return ext ? base.slice(0, -ext.length) : base;
 };
+
+const TRACE_SAFE_RAW_BYTES = Buffer.alloc(0);
+
+const traceSafeDocument = (document: ParsedDocument): ParsedDocument => ({
+  ...document,
+  rawBytes: TRACE_SAFE_RAW_BYTES,
+});
+
+const traceSafeTemplate = (template: ParsedDocument | null): ParsedDocument | null => (
+  template ? traceSafeDocument(template) : null
+);
+
+const docxTemplateBytes = (template: ParsedDocument | null): Buffer | null => (
+  template?.kind === ".docx" ? template.rawBytes : null
+);
 
 export const runReportService = async (
   config: AppConfig,
@@ -65,23 +101,40 @@ export const runReportService = async (
     input.codingThinkingType,
   );
 
-  const planWriteModel = providers.createChatModel(config, "plan", { tags: ["plan-write"], temperature: 0.2 });
-  const codingModel = providers.createChatModel(config, "coding", {
-    tags: ["coding-agent", `coding-profile:${input.codingModelProfile}`],
-    temperature: 0.1,
-    codingLlm: codingConfig,
-  });
+  const finalState = await generateGraphState({ config, input, providers, assignment, template, codingConfig });
 
-  const finalState = await providers.runGraph(
-    { config, planWriteModel, codingModel },
+  return buildReportResponse({ config, input, assignment, codingConfig, finalState });
+};
+
+const generateGraphState = async (request: GenerateGraphStateInput): Promise<GraphState> => {
+  const planWriteModel = request.providers.createChatModel(request.config, "plan", {
+    tags: ["plan-write"],
+    temperature: 0.2,
+  });
+  const codingModel = request.providers.createChatModel(request.config, "coding", {
+    tags: ["coding-agent", `coding-profile:${request.input.codingModelProfile}`],
+    temperature: 0.1,
+    codingLlm: request.codingConfig,
+  });
+  return await request.providers.runGraph(
     {
-      requestId: input.requestId,
-      modelLabel: `${config.planLlm.model} -> ${codingConfig.model}`,
-      assignment,
-      template,
+      config: request.config,
+      planWriteModel,
+      codingModel,
+      templateDocxBytes: docxTemplateBytes(request.template),
+    },
+    {
+      requestId: request.input.requestId,
+      modelLabel: `${request.config.planLlm.model} -> ${request.codingConfig.model}`,
+      assignment: traceSafeDocument(request.assignment),
+      template: traceSafeTemplate(request.template),
+      supplementalInstructions: request.input.supplementalInstructions,
     },
   );
+};
 
+const buildReportResponse = (request: BuildResponseInput): ReportResponse => {
+  const { config, input, assignment, codingConfig, finalState } = request;
   if (!finalState.plan || !finalState.writer) {
     throw new AgentError({
       code: "graph_incomplete",

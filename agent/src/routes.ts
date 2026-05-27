@@ -18,6 +18,7 @@ interface UploadSlots {
   codingModelProfile: string;
   codingReasoningEffort: string;
   codingThinkingType: string;
+  supplementalInstructions: string;
 }
 
 const readUploads = async (request: FastifyRequest): Promise<UploadSlots> => {
@@ -27,6 +28,7 @@ const readUploads = async (request: FastifyRequest): Promise<UploadSlots> => {
     codingModelProfile: "gpt",
     codingReasoningEffort: "",
     codingThinkingType: "",
+    supplementalInstructions: "",
   };
   for await (const part of request.parts()) {
     if (part.type !== "file") {
@@ -35,6 +37,9 @@ const readUploads = async (request: FastifyRequest): Promise<UploadSlots> => {
         slots.codingReasoningEffort = String(part.value ?? "");
       }
       if (part.fieldname === "coding_thinking_type") slots.codingThinkingType = String(part.value ?? "");
+      if (part.fieldname === "supplemental_instructions") {
+        slots.supplementalInstructions = String(part.value ?? "").trim();
+      }
       continue;
     }
     if (part.fieldname !== "assignment" && part.fieldname !== "template") continue;
@@ -102,6 +107,10 @@ export const registerRoutes = async (app: FastifyInstance, config: AppConfig) =>
     coding_windows_wsl_setup_acknowledged: config.codingLlm.windowsWslSetupAcknowledged,
     coding_model_context_window: config.codingLlm.contextWindow,
     coding_model_auto_compact_token_limit: config.codingLlm.autoCompactTokenLimit,
+    code_execution_backend: config.codeExecution.backend,
+    code_container_engine: config.codeExecution.container.engine,
+    code_container_image: config.codeExecution.container.image,
+    code_container_network: config.codeExecution.container.network,
     coding_model_profiles: codingModelProfiles,
     coding_deepseek_reasoning_efforts: deepseekCodingReasoningEfforts,
     coding_deepseek_thinking_types: deepseekCodingThinkingTypes,
@@ -139,6 +148,7 @@ export const registerRoutes = async (app: FastifyInstance, config: AppConfig) =>
       codingModelProfile,
       codingReasoningEffort: readCodingReasoningEffort(codingModelProfile, slots.codingReasoningEffort),
       codingThinkingType: readCodingThinkingType(codingModelProfile, slots.codingThinkingType),
+      supplementalInstructions: slots.supplementalInstructions,
     });
     reply.header("Content-Type", "application/json").send(payload);
   });

@@ -3,7 +3,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { resolve, relative, isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
 import { AgentError } from "../../http/errors.js";
-import { LIMITS } from "../../constants.js";
+import { sanitizeWorkspaceSegment } from "../workspaceUtils.js";
 
 export interface Sandbox {
   requestId: string;
@@ -24,8 +24,8 @@ export const cleanupStaleSandboxes = async (): Promise<void> => {
 };
 
 export const createSandbox = async (requestId: string, taskId: string): Promise<Sandbox> => {
-  const safeRequest = sanitizeSegment(requestId, "req");
-  const safeTask = sanitizeSegment(taskId, "task");
+  const safeRequest = sanitizeWorkspaceSegment(requestId, "req");
+  const safeTask = sanitizeWorkspaceSegment(taskId, "task");
   const rootDir = join(SANDBOX_ROOT, safeRequest, safeTask);
   await mkdir(rootDir, { recursive: true });
 
@@ -60,12 +60,4 @@ export const createSandbox = async (requestId: string, taskId: string): Promise<
       await rm(rootDir, { recursive: true, force: true });
     },
   };
-};
-
-const sanitizeSegment = (value: string, fallback: string): string => {
-  const cleaned = value
-    .replace(/[^a-zA-Z0-9_-]/g, "-")
-    .replace(/-{2,}/g, "-")
-    .slice(0, LIMITS.SANDBOX_SEGMENT_LENGTH);
-  return cleaned.length > 0 ? cleaned : fallback;
 };
