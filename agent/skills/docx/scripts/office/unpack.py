@@ -15,10 +15,9 @@ Examples:
 
 import argparse
 import sys
+import xml.dom.minidom
 import zipfile
 from pathlib import Path
-
-import defusedxml.minidom
 
 from helpers.merge_runs import merge_runs as do_merge_runs
 from helpers.simplify_redlines import simplify_redlines as do_simplify_redlines
@@ -82,7 +81,7 @@ def unpack(
 def _pretty_print_xml(xml_file: Path) -> None:
     try:
         content = xml_file.read_text(encoding="utf-8")
-        dom = defusedxml.minidom.parseString(content)
+        dom = xml.dom.minidom.parseString(content)
         xml_file.write_bytes(dom.toprettyxml(indent="  ", encoding="utf-8"))
     except Exception:
         pass  

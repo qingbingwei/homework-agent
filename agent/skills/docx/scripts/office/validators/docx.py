@@ -5,9 +5,9 @@ Validator for Word document XML files against XSD schemas.
 import random
 import re
 import tempfile
+import xml.dom.minidom
 import zipfile
 
-import defusedxml.minidom
 import lxml.etree
 
 from .base import BaseSchemaValidator
@@ -394,7 +394,7 @@ class DOCXSchemaValidator(BaseSchemaValidator):
         for xml_file in self.xml_files:
             try:
                 content = xml_file.read_text(encoding="utf-8")
-                dom = defusedxml.minidom.parseString(content)
+                dom = xml.dom.minidom.parseString(content)
                 modified = False
 
                 for elem in dom.getElementsByTagName("*"):

@@ -11,10 +11,9 @@ Rules:
 """
 
 import xml.etree.ElementTree as ET
+import xml.dom.minidom
 import zipfile
 from pathlib import Path
-
-import defusedxml.minidom
 
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
@@ -26,7 +25,7 @@ def simplify_redlines(input_dir: str) -> tuple[int, str]:
         return 0, f"Error: {doc_xml} not found"
 
     try:
-        dom = defusedxml.minidom.parseString(doc_xml.read_text(encoding="utf-8"))
+        dom = xml.dom.minidom.parseString(doc_xml.read_text(encoding="utf-8"))
         root = dom.documentElement
 
         merge_count = 0

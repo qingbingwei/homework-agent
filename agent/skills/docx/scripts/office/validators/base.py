@@ -3,9 +3,9 @@ Base validator with common validation logic for document files.
 """
 
 import re
+import xml.dom.minidom
 from pathlib import Path
 
-import defusedxml.minidom
 import lxml.etree
 
 
@@ -118,7 +118,7 @@ class BaseSchemaValidator:
         for xml_file in self.xml_files:
             try:
                 content = xml_file.read_text(encoding="utf-8")
-                dom = defusedxml.minidom.parseString(content)
+                dom = xml.dom.minidom.parseString(content)
                 modified = False
 
                 for elem in dom.getElementsByTagName("*"):

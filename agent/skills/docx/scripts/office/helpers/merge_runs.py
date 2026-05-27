@@ -10,7 +10,7 @@ Also:
 
 from pathlib import Path
 
-import defusedxml.minidom
+import xml.dom.minidom
 
 
 def merge_runs(input_dir: str) -> tuple[int, str]:
@@ -20,7 +20,7 @@ def merge_runs(input_dir: str) -> tuple[int, str]:
         return 0, f"Error: {doc_xml} not found"
 
     try:
-        dom = defusedxml.minidom.parseString(doc_xml.read_text(encoding="utf-8"))
+        dom = xml.dom.minidom.parseString(doc_xml.read_text(encoding="utf-8"))
         root = dom.documentElement
 
         _remove_elements(root, "proofErr")

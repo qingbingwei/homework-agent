@@ -14,17 +14,18 @@ import argparse
 import sys
 import shutil
 import tempfile
+import xml.dom.minidom
 import zipfile
 from pathlib import Path
-
-import defusedxml.minidom
+from typing import Optional
 
 from validators import DOCXSchemaValidator, PPTXSchemaValidator, RedliningValidator
+
 
 def pack(
     input_directory: str,
     output_file: str,
-    original_file: str | None = None,
+    original_file: Optional[str] = None,
     validate: bool = True,
     infer_author_func=None,
 ) -> tuple[None, str]:
@@ -71,7 +72,7 @@ def _run_validation(
     original_file: Path,
     suffix: str,
     infer_author_func=None,
-) -> tuple[bool, str | None]:
+) -> tuple[bool, Optional[str]]:
     output_lines = []
     validators = []
 
@@ -108,7 +109,7 @@ def _run_validation(
 def _condense_xml(xml_file: Path) -> None:
     try:
         with open(xml_file, encoding="utf-8") as f:
-            dom = defusedxml.minidom.parse(f)
+            dom = xml.dom.minidom.parse(f)
 
         for element in dom.getElementsByTagName("*"):
             if element.tagName.endswith(":t"):
