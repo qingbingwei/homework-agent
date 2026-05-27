@@ -21,6 +21,7 @@ func TestGenerateReport(t *testing.T) {
 		assertMultipartField(t, fields, "coding_model_profile", "deepseek")
 		assertMultipartField(t, fields, "coding_reasoning_effort", "high")
 		assertMultipartField(t, fields, "coding_thinking_type", "disabled")
+		assertMultipartField(t, fields, "supplemental_instructions", "不要规划得过于复杂")
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"file_name":"report.docx","markdown_content":"# ok","docx_base64":"Zm9v","template_strategy":"reference-docx","model":"gpt-5.5","coding_reasoning_effort":"high","coding_thinking_type":"disabled"}`))
 	}))
@@ -28,11 +29,12 @@ func TestGenerateReport(t *testing.T) {
 
 	client := NewClient(server.URL, &http.Client{Timeout: time.Second})
 	result, err := client.GenerateReport(context.Background(), GenerateReportRequest{
-		Assignment:            FilePayload{Name: "hw.md", ContentType: "text/markdown", Data: []byte("a")},
-		Template:              FilePayload{Name: "template.md", ContentType: "text/markdown", Data: []byte("b")},
-		CodingModelProfile:    "deepseek",
-		CodingReasoningEffort: "high",
-		CodingThinkingType:    "disabled",
+		Assignment:               FilePayload{Name: "hw.md", ContentType: "text/markdown", Data: []byte("a")},
+		Template:                 FilePayload{Name: "template.md", ContentType: "text/markdown", Data: []byte("b")},
+		CodingModelProfile:       "deepseek",
+		CodingReasoningEffort:    "high",
+		CodingThinkingType:       "disabled",
+		SupplementalInstructions: "不要规划得过于复杂",
 	})
 	if err != nil {
 		t.Fatalf("GenerateReport returned error: %v", err)

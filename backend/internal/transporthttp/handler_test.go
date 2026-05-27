@@ -20,7 +20,7 @@ type failingAgentService struct{}
 func (fakeAgentService) GenerateReport(_ context.Context, request agent.GenerateReportRequest) (report.Result, error) {
 	return report.Result{
 		FileName:              request.Assignment.Name + "-report.docx",
-		MarkdownContent:       "# report\n\ncontent",
+		MarkdownContent:       request.SupplementalInstructions,
 		DocxBase64:            "Zm9v",
 		TemplateStrategy:      request.Template.Name,
 		Model:                 "gpt-5.5",
@@ -107,6 +107,9 @@ func TestGenerateReportEndpoint(t *testing.T) {
 	if err := writer.WriteField("coding_thinking_type", "disabled"); err != nil {
 		t.Fatalf("write field: %v", err)
 	}
+	if err := writer.WriteField("supplemental_instructions", "不要规划得过于复杂"); err != nil {
+		t.Fatalf("write field: %v", err)
+	}
 	if err := writer.Close(); err != nil {
 		t.Fatalf("close writer: %v", err)
 	}
@@ -136,6 +139,9 @@ func TestGenerateReportEndpoint(t *testing.T) {
 	}
 	if payload.CodingThinkingType != "disabled" {
 		t.Fatalf("unexpected coding thinking type: %#v", payload)
+	}
+	if payload.MarkdownContent != "不要规划得过于复杂" {
+		t.Fatalf("unexpected supplemental instructions: %#v", payload)
 	}
 }
 

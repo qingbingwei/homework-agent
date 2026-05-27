@@ -20,11 +20,12 @@ type FilePayload struct {
 }
 
 type GenerateReportRequest struct {
-	Assignment            FilePayload
-	Template              FilePayload
-	CodingModelProfile    string
-	CodingReasoningEffort string
-	CodingThinkingType    string
+	Assignment               FilePayload
+	Template                 FilePayload
+	CodingModelProfile       string
+	CodingReasoningEffort    string
+	CodingThinkingType       string
+	SupplementalInstructions string
 }
 
 type Client struct {
@@ -86,6 +87,11 @@ func (c *Client) GenerateReport(ctx context.Context, payload GenerateReportReque
 	}
 	if payload.CodingThinkingType != "" {
 		if err := writer.WriteField("coding_thinking_type", payload.CodingThinkingType); err != nil {
+			return result, err
+		}
+	}
+	if payload.SupplementalInstructions != "" {
+		if err := writer.WriteField("supplemental_instructions", payload.SupplementalInstructions); err != nil {
 			return result, err
 		}
 	}

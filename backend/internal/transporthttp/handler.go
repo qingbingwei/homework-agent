@@ -152,17 +152,22 @@ func (h *Handler) handleGenerateReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := h.agentClient.GenerateReport(r.Context(), agent.GenerateReportRequest{
-		Assignment:            assignment,
-		Template:              template,
-		CodingModelProfile:    codingModelProfile,
-		CodingReasoningEffort: codingReasoningEffort,
-		CodingThinkingType:    codingThinkingType,
+		Assignment:               assignment,
+		Template:                 template,
+		CodingModelProfile:       codingModelProfile,
+		CodingReasoningEffort:    codingReasoningEffort,
+		CodingThinkingType:       codingThinkingType,
+		SupplementalInstructions: readSupplementalInstructions(r),
 	})
 	if err != nil {
 		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func readSupplementalInstructions(r *http.Request) string {
+	return strings.TrimSpace(r.FormValue("supplemental_instructions"))
 }
 
 func readCodingModelProfile(r *http.Request) (string, error) {
